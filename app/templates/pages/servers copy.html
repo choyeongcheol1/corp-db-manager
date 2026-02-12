@@ -1,0 +1,787 @@
+{% extends "base.html" %}
+{% from "components/modals.html" import confirm_delete_modal, toast_message %}
+
+{% block title %}서버 관리 - DB 관리 시스템{% endblock %}
+
+{% block content %}
+<div x-data="serverManagement()" x-init="init()">
+    <!-- 페이지 헤더 -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">서버 관리</h1>
+                <p class="text-gray-500 mt-1">DB 서버를 선택하거나 관리하세요</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2">
+            <!-- 전체 연결 테스트 버튼 -->
+            <button @click="testAllConnections()"
+                    :disabled="testingAll"
+                    class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex items-center gap-2 disabled:opacity-50">
+                <template x-if="testingAll">
+                    <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </template>
+                <template x-if="!testingAll">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </template>
+                <span x-text="testingAll ? `테스트 중 (${testProgress}/${servers.length})` : '전체 연결 테스트'"></span>
+            </button>
+            
+            <button @click="openAddModal()"
+                    class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                서버 추가
+            </button>
+        </div>
+    </div>
+    
+    <!-- 필터 바 -->
+    <div x-show="servers.length > 0" class="mb-4 flex items-center gap-3 flex-wrap">
+        <!-- DB 종류 필터 -->
+        <div class="flex items-center gap-1.5">
+            <span class="text-sm text-gray-500 mr-1">DB:</span>
+            <button @click="filterDbType = ''" 
+                    :class="filterDbType === '' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                    class="px-2.5 py-1 text-xs font-medium rounded-full transition">전체</button>
+            <template x-for="dbType in availableDbTypes" :key="dbType">
+                <button @click="filterDbType = dbType"
+                        :class="filterDbType === dbType ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                        class="px-2.5 py-1 text-xs font-medium rounded-full transition"
+                        x-text="dbType.toUpperCase()">
+                </button>
+            </template>
+        </div>
+        
+        <div class="w-px h-5 bg-gray-300"></div>
+        
+        <!-- 상태 필터 -->
+        <div class="flex items-center gap-1.5">
+            <span class="text-sm text-gray-500 mr-1">상태:</span>
+            <button @click="filterStatus = ''"
+                    :class="filterStatus === '' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                    class="px-2.5 py-1 text-xs font-medium rounded-full transition">전체</button>
+            <button @click="filterStatus = 'online'"
+                    :class="filterStatus === 'online' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                    class="px-2.5 py-1 text-xs font-medium rounded-full transition flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full" :class="filterStatus === 'online' ? 'bg-white' : 'bg-green-500'"></span>
+                온라인
+                <span x-show="onlineCount > 0" class="text-xs" x-text="'(' + onlineCount + ')'"></span>
+            </button>
+            <button @click="filterStatus = 'offline'"
+                    :class="filterStatus === 'offline' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                    class="px-2.5 py-1 text-xs font-medium rounded-full transition flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full" :class="filterStatus === 'offline' ? 'bg-white' : 'bg-red-500'"></span>
+                오프라인
+                <span x-show="offlineCount > 0" class="text-xs" x-text="'(' + offlineCount + ')'"></span>
+            </button>
+            <button @click="filterStatus = 'unknown'"
+                    :class="filterStatus === 'unknown' ? 'bg-gray-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                    class="px-2.5 py-1 text-xs font-medium rounded-full transition flex items-center gap-1">
+                미확인
+                <span x-show="unknownCount > 0" class="text-xs" x-text="'(' + unknownCount + ')'"></span>
+            </button>
+        </div>
+        
+        <div class="ml-auto text-sm text-gray-400">
+            <span x-text="filteredServers.length + '/' + servers.length + '개 서버'"></span>
+        </div>
+    </div>
+    
+    <!-- 현재 선택된 서버 표시 -->
+    <template x-if="currentServerId">
+        <div class="mb-6 p-4 bg-primary-50 border border-primary-200 rounded-xl flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-sm text-primary-600 font-medium">현재 선택된 서버</p>
+                    <p class="text-lg font-bold text-primary-800" x-text="currentServerName"></p>
+                </div>
+            </div>
+            <a :href="'/dashboard/' + currentServerId" 
+               class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">
+                대시보드로 이동
+            </a>
+        </div>
+    </template>
+    
+    <!-- 로딩 상태 -->
+    <div x-show="loading" class="text-center py-12">
+        <div class="inline-block w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin"></div>
+        <p class="text-gray-500 mt-2">로딩 중...</p>
+    </div>
+    
+    <!-- 서버 목록 -->
+    <div x-show="!loading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <template x-for="server in filteredServers" :key="server.id">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+                <!-- 카드 상단 -->
+                <div @click="selectServer(server)"
+                     class="block p-6 hover:bg-gray-50 transition cursor-pointer">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600">
+                            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+                            </svg>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <!-- DB 종류 뱃지 -->
+                            <span class="px-2 py-1 text-xs font-medium rounded-full"
+                                  :class="{
+                                      'bg-blue-100 text-blue-700': server.db_type === 'mssql',
+                                      'bg-indigo-100 text-indigo-700': server.db_type === 'postgresql',
+                                      'bg-orange-100 text-orange-700': server.db_type === 'mysql',
+                                      'bg-red-100 text-red-700': server.db_type === 'oracle',
+                                      'bg-gray-100 text-gray-700': !['mssql','postgresql','mysql','oracle'].includes(server.db_type)
+                                  }"
+                                  x-text="(server.db_type || 'db').toUpperCase()">
+                            </span>
+                            <!-- 연결 상태 인디케이터 -->
+                            <template x-if="connectionStatus[server.id] === 'checking'">
+                                <span class="w-2.5 h-2.5 rounded-full bg-gray-300 animate-pulse" title="확인 중..."></span>
+                            </template>
+                            <template x-if="connectionStatus[server.id] === 'online'">
+                                <span class="w-2.5 h-2.5 rounded-full bg-green-500" title="온라인"></span>
+                            </template>
+                            <template x-if="connectionStatus[server.id] === 'offline'">
+                                <span class="w-2.5 h-2.5 rounded-full bg-red-500" title="오프라인"></span>
+                            </template>
+                            <template x-if="!connectionStatus[server.id]">
+                                <span class="w-2.5 h-2.5 rounded-full bg-gray-300" title="미확인"></span>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <h3 class="text-lg font-bold text-gray-800 mb-1" x-text="server.server_name"></h3>
+                    <p class="text-gray-500 text-sm" x-text="server.host + ':' + server.port"></p>
+                    
+                    <template x-if="server.description">
+                        <p class="text-gray-600 text-sm mt-2 line-clamp-2" x-text="server.description"></p>
+                    </template>
+                </div>
+                
+                <!-- 카드 하단 -->
+                <div class="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                    <button @click.stop="testConnection(server.id)"
+                            class="text-sm text-gray-600 hover:text-primary-600 transition flex items-center gap-1"
+                            :disabled="testingId === server.id">
+                        <template x-if="testingId === server.id">
+                            <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                            </svg>
+                        </template>
+                        <template x-if="testingId !== server.id">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </template>
+                        <span x-text="testingId === server.id ? '테스트 중...' : '연결 테스트'"></span>
+                    </button>
+                    
+                    <!-- 더보기 메뉴 -->
+                    <div class="relative" x-data="{ open: false }">
+                        <button @click.stop="open = !open" 
+                                class="p-1 text-gray-400 hover:text-gray-600 transition rounded">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                            </svg>
+                        </button>
+                        
+                        <div x-show="open" 
+                             x-cloak
+                             @click.away="open = false"
+                             class="absolute right-0 bottom-full mb-2 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                            <button @click.stop="openEditModal(server); open = false"
+                                    class="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                                수정
+                            </button>
+                            <button @click.stop="openDeleteModal(server); open = false"
+                                    class="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                                삭제
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 연결 테스트 결과 -->
+                <template x-if="testResults[server.id]">
+                    <div class="px-6 py-2 text-sm border-t"
+                         :class="testResults[server.id]?.success ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-700 border-red-100'">
+                        <span x-text="testResults[server.id]?.message"></span>
+                    </div>
+                </template>
+            </div>
+        </template>
+        
+        <!-- 서버 추가 카드 -->
+        <button @click="openAddModal()"
+                class="bg-white rounded-xl shadow-sm border-2 border-dashed border-gray-300 p-6 hover:border-primary-400 hover:bg-primary-50 transition flex flex-col items-center justify-center min-h-[200px] cursor-pointer">
+            <div class="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 mb-3">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+            </div>
+            <span class="text-gray-500 font-medium">새 서버 추가</span>
+        </button>
+    </div>
+    
+    <!-- 필터 결과 없음 -->
+    <template x-if="!loading && servers.length > 0 && filteredServers.length === 0">
+        <div class="text-center py-8">
+            <p class="text-gray-500">필터 조건에 맞는 서버가 없습니다.</p>
+            <button @click="filterDbType = ''; filterStatus = ''" 
+                    class="mt-2 text-primary-600 hover:text-primary-700 text-sm font-medium">필터 초기화</button>
+        </div>
+    </template>
+    
+    <!-- 서버 없음 안내 -->
+    <template x-if="!loading && servers.length === 0">
+        <div class="text-center py-8">
+            <p class="text-gray-500">등록된 서버가 없습니다. 위의 카드를 클릭하여 서버를 추가하세요.</p>
+        </div>
+    </template>
+    
+    <!-- 서버 추가/수정 모달 -->
+    <div x-show="showAddModal" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        @mousedown.self="showAddModal = false">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto"
+            @click.stop>
+            <h3 class="text-xl font-bold text-gray-800 mb-6" x-text="editingId ? '서버 수정' : '서버 추가'"></h3>
+            
+            <form @submit.prevent="saveServer" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">서버명 *</label>
+                        <input type="text" x-model="form.server_name" required
+                               placeholder="예: 운영서버, 개발서버"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                    </div>
+                    
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">DB 종류 *</label>
+                        <select x-model="form.db_type" @change="updateDefaultPort()" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition bg-white">
+                            <option value="mssql">MS SQL Server</option>
+                            <option value="postgresql">PostgreSQL</option>
+                            <option value="mysql">MySQL</option>
+                            <option value="oracle">Oracle</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1" x-text="getDbTypeDescription()"></p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">호스트 *</label>
+                        <input type="text" x-model="form.host" required
+                               placeholder="IP 또는 도메인"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">포트</label>
+                        <input type="number" x-model="form.port"
+                               :placeholder="getDefaultPort()"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                    </div>
+                    
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <span x-text="getDefaultDbLabel()">기본 DB</span>
+                        </label>
+                        <input type="text" x-model="form.default_db"
+                               :placeholder="getDefaultDbPlaceholder()"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                        <p class="text-xs text-gray-500 mt-1" x-text="getDefaultDbHint()"></p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">접속 계정 *</label>
+                        <input type="text" x-model="form.username" required
+                               placeholder="DB 계정"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호 <span x-show="!editingId">*</span></label>
+                        <div class="relative">
+                            <input :type="showPassword ? 'text' : 'password'" 
+                                   x-model="form.password" 
+                                   :required="!editingId"
+                                   :placeholder="editingId ? '변경 시에만 입력' : '********'"
+                                   class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                            <button type="button" 
+                                    @click="showPassword = !showPassword"
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                <svg x-show="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                                <svg x-show="showPassword" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">설명</label>
+                        <textarea x-model="form.description" rows="2"
+                                  placeholder="서버 용도나 메모"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition"></textarea>
+                    </div>
+                </div>
+                
+                <!-- 모달 내 연결 테스트 -->
+                <div class="border border-gray-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">저장 전 연결 확인</span>
+                        <button type="button" @click="testModalConnection()"
+                                :disabled="modalTesting || !form.host || !form.username || (!editingId && !form.password)"
+                                class="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5">
+                            <template x-if="modalTesting">
+                                <svg class="w-3.5 h-3.5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                            </template>
+                            <template x-if="!modalTesting">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                </svg>
+                            </template>
+                            <span x-text="modalTesting ? '테스트 중...' : '연결 테스트'"></span>
+                        </button>
+                    </div>
+                    <template x-if="modalTestResult">
+                        <div class="mt-2 px-3 py-2 rounded-lg text-sm"
+                             :class="modalTestResult.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'">
+                            <div class="flex items-center gap-1.5">
+                                <template x-if="modalTestResult.success">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </template>
+                                <template x-if="!modalTestResult.success">
+                                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
+                                </template>
+                                <span x-text="modalTestResult.message"></span>
+                            </div>
+                            <template x-if="modalTestResult.version">
+                                <p class="text-xs mt-1 opacity-75" x-text="modalTestResult.version"></p>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+                
+                <div class="flex justify-end gap-2 pt-4">
+                    <button type="button" @click="showAddModal = false"
+                            class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition">취소</button>
+                    <button type="submit" :disabled="saving"
+                            class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition disabled:opacity-50">
+                        <span x-show="!saving">저장</span>
+                        <span x-show="saving">저장 중...</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 삭제 확인 모달 -->
+    {{ confirm_delete_modal() }}
+    
+    <!-- 토스트 메시지 -->
+    {{ toast_message() }}
+</div>
+
+<script>
+function serverManagement() {
+    return {
+        // 상태
+        loading: true,
+        saving: false,
+        servers: [],
+        currentServerId: null,
+        currentServerName: '',
+        testResults: {},
+        testingId: null,
+        connectionStatus: {},
+        
+        // 전체 연결 테스트
+        testingAll: false,
+        testProgress: 0,
+        
+        // 필터
+        filterDbType: '',
+        filterStatus: '',
+        
+        // 모달 상태
+        showAddModal: false,
+        showDeleteModal: false,
+        showPassword: false,
+        
+        // 모달 내 연결 테스트
+        modalTesting: false,
+        modalTestResult: null,
+        
+        // 폼 데이터
+        editingId: null,
+        form: { 
+            server_name: '', host: '', port: 1433, db_type: 'mssql', 
+            default_db: '', username: '', password: '', description: '' 
+        },
+        
+        // 삭제 대상
+        deleteTarget: { id: null, name: '', type: '서버', warning: '이 서버에 연결된 모든 설정이 함께 삭제됩니다.' },
+        
+        // 토스트
+        toast: { show: false, message: '', type: 'success' },
+        
+        // ============================================================
+        // Computed
+        // ============================================================
+        
+        get availableDbTypes() {
+            return [...new Set(this.servers.map(s => s.db_type).filter(Boolean))].sort();
+        },
+        
+        get filteredServers() {
+            return this.servers.filter(s => {
+                if (this.filterDbType && s.db_type !== this.filterDbType) return false;
+                if (this.filterStatus) {
+                    const status = this.connectionStatus[s.id];
+                    if (this.filterStatus === 'online' && status !== 'online') return false;
+                    if (this.filterStatus === 'offline' && status !== 'offline') return false;
+                    if (this.filterStatus === 'unknown' && (status === 'online' || status === 'offline')) return false;
+                }
+                return true;
+            });
+        },
+        
+        get onlineCount() {
+            return this.servers.filter(s => this.connectionStatus[s.id] === 'online').length;
+        },
+        get offlineCount() {
+            return this.servers.filter(s => this.connectionStatus[s.id] === 'offline').length;
+        },
+        get unknownCount() {
+            return this.servers.filter(s => !['online','offline'].includes(this.connectionStatus[s.id])).length;
+        },
+        
+        // ============================================================
+        // 초기화
+        // ============================================================
+        
+        async init() {
+            await this.loadServers();
+            this.loading = false;
+            // 페이지 로딩 후 백그라운드에서 연결 상태 체크
+            this.checkAllConnectionsAsync();
+        },
+        
+        async loadServers() {
+            try {
+                const res = await fetch('/api/servers?fast=true');
+                if (res.ok) {
+                    this.servers = await res.json();
+                }
+            } catch (e) {
+                console.error('서버 목록 로드 실패:', e);
+            }
+        },
+        
+        // ============================================================
+        // 비동기 연결 상태 체크 (백그라운드)
+        // ============================================================
+        
+        async checkAllConnectionsAsync() {
+            const promises = this.servers.map(s => this.checkConnectionAsync(s.id));
+            await Promise.allSettled(promises);
+        },
+        
+        async checkConnectionAsync(serverId) {
+            this.connectionStatus[serverId] = 'checking';
+            try {
+                const res = await fetch(`/api/servers/${serverId}/test`, { method: 'POST' });
+                const result = await res.json();
+                this.connectionStatus[serverId] = result.success ? 'online' : 'offline';
+            } catch (e) {
+                this.connectionStatus[serverId] = 'offline';
+            }
+        },
+        
+        // ============================================================
+        // 서버 선택
+        // ============================================================
+        
+        selectServer(server) {
+            this.currentServerId = server.id;
+            this.currentServerName = server.server_name;
+            window.location.href = `/dashboard/${server.id}`;
+        },
+        
+        // ============================================================
+        // 서버 추가/수정
+        // ============================================================
+        
+        openAddModal() {
+            this.resetForm();
+            this.showAddModal = true;
+        },
+        
+        openEditModal(server) {
+            this.editingId = server.id;
+            this.form = { 
+                server_name: server.server_name, host: server.host, port: server.port,
+                db_type: server.db_type || 'mssql', default_db: server.default_db || '',
+                username: server.username, password: '', description: server.description || ''
+            };
+            this.showPassword = false;
+            this.modalTestResult = null;
+            this.showAddModal = true;
+        },
+        
+        resetForm() {
+            this.form = { 
+                server_name: '', host: '', port: 1433, db_type: 'mssql', 
+                default_db: '', username: '', password: '', description: '' 
+            };
+            this.editingId = null;
+            this.showPassword = false;
+            this.modalTestResult = null;
+        },
+        
+        async saveServer() {
+            if (!this.form.server_name || !this.form.host || !this.form.username) {
+                this.showToast('필수 항목을 입력해주세요.', 'error');
+                return;
+            }
+            if (!this.editingId && !this.form.password) {
+                this.showToast('비밀번호를 입력해주세요.', 'error');
+                return;
+            }
+            
+            this.saving = true;
+            try {
+                const url = this.editingId ? `/api/servers/${this.editingId}` : '/api/servers';
+                const method = this.editingId ? 'PUT' : 'POST';
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.form)
+                });
+                
+                if (res.ok) {
+                    this.showAddModal = false;
+                    this.showToast(this.editingId ? '서버가 수정되었습니다.' : '서버가 추가되었습니다.', 'success');
+                    await this.loadServers();
+                    this.resetForm();
+                    this.checkAllConnectionsAsync();
+                } else {
+                    const error = await res.json();
+                    this.showToast(error.detail || '저장 실패', 'error');
+                }
+            } catch (e) {
+                this.showToast('저장 중 오류가 발생했습니다.', 'error');
+            }
+            this.saving = false;
+        },
+        
+        // ============================================================
+        // 모달 내 연결 테스트 (저장 전 확인)
+        // ============================================================
+        
+        async testModalConnection() {
+            this.modalTesting = true;
+            this.modalTestResult = null;
+            
+            try {
+                if (this.editingId && !this.form.password) {
+                    // 수정 모드 + 비밀번호 미입력 → 기존 서버 ID로 테스트
+                    const res = await fetch(`/api/servers/${this.editingId}/test`, { method: 'POST' });
+                    this.modalTestResult = await res.json();
+                } else {
+                    // 직접 연결 정보로 테스트
+                    const res = await fetch('/api/servers/test-connection', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            db_type: this.form.db_type,
+                            host: this.form.host,
+                            port: parseInt(this.form.port) || this.getDefaultPort(),
+                            default_db: this.form.default_db || null,
+                            username: this.form.username,
+                            password: this.form.password
+                        })
+                    });
+                    this.modalTestResult = await res.json();
+                }
+            } catch (e) {
+                this.modalTestResult = { success: false, message: '연결 테스트 요청 실패' };
+            }
+            this.modalTesting = false;
+        },
+        
+        // ============================================================
+        // 서버 삭제
+        // ============================================================
+        
+        openDeleteModal(server) {
+            this.deleteTarget = { 
+                id: server.id, name: server.server_name, type: '서버',
+                warning: '이 서버에 연결된 모든 설정이 함께 삭제됩니다.'
+            };
+            this.showDeleteModal = true;
+        },
+        
+        async confirmDelete() {
+            try {
+                const res = await fetch(`/api/servers/${this.deleteTarget.id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    this.showDeleteModal = false;
+                    this.showToast('서버가 삭제되었습니다.', 'success');
+                    delete this.connectionStatus[this.deleteTarget.id];
+                    delete this.testResults[this.deleteTarget.id];
+                    await this.loadServers();
+                } else {
+                    const error = await res.json();
+                    this.showToast(error.detail || '삭제 실패', 'error');
+                }
+            } catch (e) {
+                this.showToast('삭제 중 오류가 발생했습니다.', 'error');
+            }
+        },
+        
+        // ============================================================
+        // 연결 테스트 (개별)
+        // ============================================================
+        
+        async testConnection(serverId) {
+            this.testingId = serverId;
+            this.testResults[serverId] = { success: null, message: '연결 테스트 중...' };
+            
+            try {
+                const res = await fetch(`/api/servers/${serverId}/test`, { method: 'POST' });
+                const result = await res.json();
+                this.testResults[serverId] = result;
+                this.connectionStatus[serverId] = result.success ? 'online' : 'offline';
+            } catch (e) {
+                this.testResults[serverId] = { success: false, message: '연결 테스트 실패' };
+                this.connectionStatus[serverId] = 'offline';
+            }
+            this.testingId = null;
+        },
+        
+        // ============================================================
+        // 전체 일괄 연결 테스트
+        // ============================================================
+        
+        async testAllConnections() {
+            if (this.servers.length === 0) return;
+            
+            this.testingAll = true;
+            this.testProgress = 0;
+            
+            for (const server of this.servers) {
+                this.testingId = server.id;
+                this.testResults[server.id] = { success: null, message: '연결 테스트 중...' };
+                
+                try {
+                    const res = await fetch(`/api/servers/${server.id}/test`, { method: 'POST' });
+                    const result = await res.json();
+                    this.testResults[server.id] = result;
+                    this.connectionStatus[server.id] = result.success ? 'online' : 'offline';
+                } catch (e) {
+                    this.testResults[server.id] = { success: false, message: '연결 테스트 실패' };
+                    this.connectionStatus[server.id] = 'offline';
+                }
+                this.testProgress++;
+            }
+            
+            this.testingId = null;
+            this.testingAll = false;
+            
+            const online = this.servers.filter(s => this.connectionStatus[s.id] === 'online').length;
+            const offline = this.servers.length - online;
+            
+            if (offline === 0) {
+                this.showToast(`전체 ${this.servers.length}개 서버 연결 정상`, 'success');
+            } else {
+                this.showToast(`${online}개 정상 / ${offline}개 연결 실패`, 'warning');
+            }
+        },
+        
+        // ============================================================
+        // 유틸리티
+        // ============================================================
+        
+        getDefaultPort() {
+            const ports = { mssql: 1433, postgresql: 5432, mysql: 3306, oracle: 1521 };
+            return ports[this.form.db_type] || 1433;
+        },
+        
+        updateDefaultPort() {
+            this.form.port = this.getDefaultPort();
+            this.form.default_db = '';
+        },
+        
+        getDbTypeDescription() {
+            const d = {
+                mssql: '기본 포트: 1433 | SQL Server 인증',
+                postgresql: '기본 포트: 5432 | PostgreSQL 인증',
+                mysql: '기본 포트: 3306 | MySQL 인증',
+                oracle: '기본 포트: 1521 | Oracle 인증'
+            };
+            return d[this.form.db_type] || '';
+        },
+        
+        getDefaultDbLabel() {
+            return this.form.db_type === 'oracle' ? 'Service Name' : '기본 DB';
+        },
+        
+        getDefaultDbPlaceholder() {
+            const p = {
+                mssql: 'master (기본값)', postgresql: 'postgres (기본값)',
+                mysql: '비워두면 전체 DB 조회', oracle: 'ORCL, XE 등'
+            };
+            return p[this.form.db_type] || '';
+        },
+        
+        getDefaultDbHint() {
+            const h = {
+                mssql: '연결 테스트 시 사용할 데이터베이스',
+                postgresql: '연결 테스트 시 사용할 데이터베이스',
+                mysql: '연결 테스트 시 사용할 데이터베이스',
+                oracle: 'Oracle Listener에 등록된 서비스 이름 (필수)'
+            };
+            return h[this.form.db_type] || '';
+        },
+        
+        showToast(message, type = 'success') {
+            this.toast = { show: true, message, type };
+            setTimeout(() => { this.toast.show = false; }, 3000);
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+{% from "components/modals.html" import confirm_delete_modal, toast_message %}
+
+{% block title %}서버 관리 - 법인 DB 관리 시스템{% endblock %}
+
+{% block content %}
+<div x-data="serverManagement()">
+    <!-- 페이지 헤더 -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">서버 관리</h1>
+                <p class="text-gray-500 mt-1">DB 서버 등록 및 관리</p>
+            </div>
+        </div>
+        
+        <button @click="showAddModal = true; resetForm()"
+                class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            서버 추가
+        </button>
+    </div>
+    
+    <!-- 서버 목록 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for server in servers %}
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-600">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+                    </svg>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if server.is_active %}
+                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span class="text-sm text-green-600">활성</span>
+                    {% else %}
+                    <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                    <span class="text-sm text-gray-500">비활성</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <h3 class="text-lg font-bold text-gray-800 mb-1">{{ server.server_name }}</h3>
+            <p class="text-gray-500 text-sm mb-4">{{ server.host }}:{{ server.port }}</p>
+            
+            {% if server.description %}
+            <p class="text-gray-600 text-sm mb-4">{{ server.description }}</p>
+            {% endif %}
+            
+            <div class="flex gap-2">
+                <button @click="testConnection({{ server.id }})"
+                        class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition flex items-center justify-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    테스트
+                </button>
+                <button @click="editServer({{ server.id }})"
+                        class="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                        title="수정">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                </button>
+                <button @click="deleteServer({{ server.id }}, '{{ server.server_name }}')"
+                        class="px-3 py-2 text-sm border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition"
+                        title="삭제">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div x-show="testResults[{{ server.id }}]" x-cloak class="mt-3 p-2 rounded text-sm"
+                 :class="testResults[{{ server.id }}]?.success ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'">
+                <span x-text="testResults[{{ server.id }}]?.message"></span>
+            </div>
+        </div>
+        {% endfor %}
+        
+        {% if not servers %}
+        <div class="col-span-full text-center py-12 bg-white rounded-xl">
+            <div class="w-16 h-16 mx-auto bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 mb-4">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+                </svg>
+            </div>
+            <h3 class="text-xl font-medium text-gray-600">등록된 서버가 없습니다</h3>
+            <p class="text-gray-400 mt-2">서버 추가 버튼을 클릭하여 DB 서버를 등록하세요</p>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- 서버 추가/수정 모달 -->
+    <div x-show="showAddModal" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full mx-4">
+            <h3 class="text-xl font-bold text-gray-800 mb-6" x-text="editingId ? '서버 수정' : '서버 추가'"></h3>
+            
+            <form @submit.prevent="saveServer" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">서버명 *</label>
+                        <input type="text" x-model="form.server_name" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                    </div>
+                    
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">DB 종류 *</label>
+                        <select x-model="form.db_type" @change="updateDefaultPort()" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition bg-white">
+                            <option value="mssql">MS SQL Server</option>
+                            <option value="postgresql">PostgreSQL</option>
+                            <option value="mysql">MySQL</option>
+                            <option value="oracle">Oracle</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1" x-text="getDbTypeDescription()"></p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">호스트 *</label>
+                        <input type="text" x-model="form.host" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">포트</label>
+                        <input type="number" x-model="form.port"
+                               :placeholder="getDefaultPort()"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                    </div>
+                    
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <span x-text="getDefaultDbLabel()">기본 DB</span>
+                        </label>
+                        <input type="text" x-model="form.default_db"
+                               :placeholder="getDefaultDbPlaceholder()"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                        <p class="text-xs text-gray-500 mt-1" x-text="getDefaultDbHint()"></p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">접속 계정 *</label>
+                        <input type="text" x-model="form.username" required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호 *</label>
+                        <div class="relative">
+                            <input :type="showPassword ? 'text' : 'password'" x-model="form.password" :required="!editingId"
+                                   class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                            <button type="button" 
+                                    @click="showPassword = !showPassword"
+                                    class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                <svg x-show="!showPassword" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                </svg>
+                                <svg x-show="showPassword" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">설명</label>
+                        <textarea x-model="form.description" rows="2"
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition"></textarea>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-2 pt-4">
+                    <button type="button" @click="showAddModal = false"
+                            class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition">취소</button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">저장</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 공통 삭제 확인 모달 -->
+    {{ confirm_delete_modal() }}
+    
+    <!-- 공통 토스트 메시지 -->
+    {{ toast_message() }}
+</div>
+
+<script>
+function serverManagement() {
+    return {
+        // 모달 상태
+        showAddModal: false,
+        showDeleteModal: false,
+        showPassword: false,
+        
+        // 폼 데이터
+        editingId: null,
+        form: { server_name: '', host: '', port: 1433, db_type: 'mssql', default_db: '', username: '', password: '', description: '' },
+        
+        // 삭제 대상 (공통 모달용)
+        deleteTarget: { id: null, name: '', type: '서버 연결 정보', warning: '이 시스템에서 서버 연결 정보가 제거됩니다.' },
+        
+        // 테스트 결과
+        testResults: {},
+        
+        // 토스트 (공통 컴포넌트용)
+        toast: { show: false, message: '', type: 'success' },
+        
+        resetForm() {
+            this.form = { server_name: '', host: '', port: 1433, db_type: 'mssql', default_db: '', username: '', password: '', description: '' };
+            this.editingId = null;
+            this.showPassword = false;
+        },
+        
+        getDefaultPort() {
+            const ports = { mssql: 1433, postgresql: 5432, mysql: 3306, oracle: 1521 };
+            return ports[this.form.db_type] || 1433;
+        },
+        
+        updateDefaultPort() {
+            this.form.port = this.getDefaultPort();
+            this.form.default_db = '';  // DB 종류 변경 시 기본 DB 초기화
+        },
+        
+        getDbTypeDescription() {
+            const descriptions = {
+                mssql: '기본 포트: 1433 | Windows 인증 또는 SQL 인증',
+                postgresql: '기본 포트: 5432 | psycopg2 드라이버 필요',
+                mysql: '기본 포트: 3306 | pymysql 드라이버 필요',
+                oracle: '기본 포트: 1521 | oracledb 드라이버 필요'
+            };
+            return descriptions[this.form.db_type] || '';
+        },
+        
+        getDefaultDbLabel() {
+            const labels = {
+                mssql: '기본 DB',
+                postgresql: '기본 DB',
+                mysql: '기본 DB',
+                oracle: 'Service Name'
+            };
+            return labels[this.form.db_type] || '기본 DB';
+        },
+        
+        getDefaultDbPlaceholder() {
+            const placeholders = {
+                mssql: 'master (기본값)',
+                postgresql: 'postgres (기본값)',
+                mysql: '비워두면 전체 DB 조회',
+                oracle: 'ORCL, XE 등'
+            };
+            return placeholders[this.form.db_type] || '';
+        },
+        
+        getDefaultDbHint() {
+            const hints = {
+                mssql: '연결 테스트 시 사용할 데이터베이스',
+                postgresql: '연결 테스트 시 사용할 데이터베이스',
+                mysql: '연결 테스트 시 사용할 데이터베이스',
+                oracle: 'Oracle Listener에 등록된 서비스 이름 (필수)'
+            };
+            return hints[this.form.db_type] || '';
+        },
+        
+        showToast(message, type = 'success') {
+            this.toast = { show: true, message, type };
+            setTimeout(() => { this.toast.show = false; }, 3000);
+        },
+        
+        async testConnection(serverId) {
+            const res = await fetch(`/api/servers/${serverId}/test`, { method: 'POST' });
+            this.testResults[serverId] = await res.json();
+        },
+        
+        async editServer(serverId) {
+            const res = await fetch(`/api/servers/${serverId}`);
+            const server = await res.json();
+            this.form = { ...server, password: '' };
+            this.editingId = serverId;
+            this.showPassword = false;
+            this.showAddModal = true;
+        },
+        
+        async saveServer() {
+            const url = this.editingId ? `/api/servers/${this.editingId}` : '/api/servers';
+            const method = this.editingId ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.form) });
+            if (res.ok) {
+                this.showToast(this.editingId ? '서버가 수정되었습니다.' : '서버가 추가되었습니다.', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                this.showToast((await res.json()).detail, 'error');
+            }
+        },
+        
+        // 삭제 모달 열기
+        deleteServer(serverId, name) {
+            this.deleteTarget = { 
+                id: serverId, 
+                name: name, 
+                type: '서버 연결 정보',
+                warning: '이 시스템에서 서버 연결 정보가 제거됩니다.'
+            };
+            this.showDeleteModal = true;
+        },
+        
+        // 삭제 확인 (공통 모달에서 호출)
+        async confirmDelete() {
+            const res = await fetch(`/api/servers/${this.deleteTarget.id}`, { method: 'DELETE' });
+            if (res.ok) {
+                this.showDeleteModal = false;
+                this.showToast('서버 연결 정보가 삭제되었습니다.', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                this.showToast((await res.json()).detail, 'error');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

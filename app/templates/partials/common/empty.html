@@ -1,0 +1,13 @@
+<!-- 빈 상태 표시 -->
+<div class="text-center py-12 text-gray-500">
+    <span class="text-5xl block mb-4">{{ icon|default('📭') }}</span>
+    <h3 class="text-lg font-medium text-gray-600">{{ title|default('데이터가 없습니다') }}</h3>
+    {% if message %}
+    <p class="text-sm text-gray-400 mt-1">{{ message }}</p>
+    {% endif %}
+    {% if action_url %}
+    <a href="{{ action_url }}" class="inline-block mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">
+        {{ action_text|default('추가하기') }}
+    </a>
+    {% endif %}
+</div>

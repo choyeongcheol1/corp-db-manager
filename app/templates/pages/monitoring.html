@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import svg_icon %}
+
+{% block title %}모니터링 - DB 관리 시스템{% endblock %}
+
+{% block content %}
+<div>
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+                {{ svg_icon('arrow-trending-up', 'w-6 h-6') }}
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">모니터링</h1>
+                <p class="text-gray-500 mt-1">시스템 상태 모니터링</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 헬스체크 -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="text-primary-600">{{ svg_icon('magnifying-glass', 'w-5 h-5') }}</span>
+                헬스체크
+            </h3>
+            <p class="text-gray-500 mb-4">전체 DB 연결 상태를 점검합니다</p>
+            <button class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center gap-2">
+                {{ svg_icon('arrow-path', 'w-4 h-4') }}
+                전체 헬스체크 실행
+            </button>
+        </div>
+        
+        <!-- 용량 현황 -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="text-green-600">{{ svg_icon('chart-bar', 'w-5 h-5') }}</span>
+                용량 현황
+            </h3>
+            <p class="text-gray-500">용량 모니터링 기능 (추후 구현)</p>
+        </div>
+        
+        <!-- 연결 상태 -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="text-blue-600">{{ svg_icon('globe', 'w-5 h-5') }}</span>
+                연결 상태
+            </h3>
+            <p class="text-gray-500">서버별 연결 상태 (추후 구현)</p>
+        </div>
+        
+        <!-- 알림 이력 -->
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="text-yellow-600">{{ svg_icon('bell', 'w-5 h-5') }}</span>
+                알림 이력
+            </h3>
+            <p class="text-gray-500">알림 이력 (추후 구현)</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

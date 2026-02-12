@@ -1,0 +1,793 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import svg_icon %}
+
+{% block title %}설정 - DB 관리 시스템{% endblock %}
+
+{% block content %}
+<div x-data="settingsPage()" x-init="init()">
+    <!-- 페이지 헤더 -->
+    <div class="flex items-center gap-3 mb-6">
+        <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+            {{ svg_icon('cog', 'w-6 h-6') }}
+        </div>
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">설정</h1>
+            <p class="text-gray-500 mt-1">시스템 설정 관리</p>
+        </div>
+    </div>
+    
+    <!-- 로딩 표시 -->
+    <div x-show="loading" class="bg-white rounded-xl p-12 shadow-sm border border-gray-100">
+        <div class="flex justify-center items-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+            <span class="ml-3 text-gray-500">로딩 중...</span>
+        </div>
+    </div>
+    
+    <div x-show="!loading" x-cloak class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <!-- 탭 네비게이션 -->
+        <div class="border-b border-gray-200">
+            <nav class="flex -mb-px overflow-x-auto">
+                <button 
+                    @click="activeTab = 'alert'"
+                    :class="activeTab === 'alert' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                    class="flex items-center gap-2 px-6 py-4 border-b-2 font-medium whitespace-nowrap transition-colors">
+                    {{ svg_icon('bell', 'w-5 h-5') }}
+                    알림 설정
+                </button>
+                <button 
+                    @click="activeTab = 'maindb'"
+                    :class="activeTab === 'maindb' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                    class="flex items-center gap-2 px-6 py-4 border-b-2 font-medium whitespace-nowrap transition-colors">
+                    {{ svg_icon('circle-stack', 'w-5 h-5') }}
+                    메인 DB 설정
+                </button>
+                <button 
+                    @click="activeTab = 'replication'"
+                    :class="activeTab === 'replication' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                    class="flex items-center gap-2 px-6 py-4 border-b-2 font-medium whitespace-nowrap transition-colors">
+                    {{ svg_icon('document-duplicate', 'w-5 h-5') }}
+                    복제 설정
+                </button>
+            </nav>
+        </div>
+        
+        <!-- 탭 컨텐츠 -->
+        <div class="p-6">
+            
+            <!-- ============================================================ -->
+            <!-- 알림 설정 탭 -->
+            <!-- ============================================================ -->
+            <div x-show="activeTab === 'alert'" x-cloak>
+                <div class="max-w-xl">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-1">알림 설정</h3>
+                    <p class="text-sm text-gray-500 mb-6">용량 모니터링 알림 임계치를 설정합니다.</p>
+                    
+                    <div class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                용량 경고 임계치 (%)
+                                <span class="text-gray-400 font-normal ml-1">- 이 수치 이상이면 경고 표시</span>
+                            </label>
+                            <input type="number" 
+                                   x-model.number="alert.capacity_warning_percent"
+                                   min="0" max="100"
+                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                용량 위험 임계치 (%)
+                                <span class="text-gray-400 font-normal ml-1">- 이 수치 이상이면 위험 표시</span>
+                            </label>
+                            <input type="number" 
+                                   x-model.number="alert.capacity_critical_percent"
+                                   min="0" max="100"
+                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                        </div>
+                        
+                        <div class="pt-4">
+                            <button @click="saveAlertSettings()" 
+                                    :disabled="saving"
+                                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition">
+                                <div x-show="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <template x-if="!saving">
+                                    {{ svg_icon('check-circle', 'w-4 h-4') }}
+                                </template>
+                                저장
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ============================================================ -->
+            <!-- 메인 DB 설정 탭 (다중 등록) -->
+            <!-- ============================================================ -->
+            <div x-show="activeTab === 'maindb'" x-cloak>
+                <div class="max-w-2xl">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-1">메인 DB 설정</h3>
+                    <p class="text-sm text-gray-500 mb-6">법인 정보를 조회할 ERP 메인 DB를 등록합니다. 서버별로 여러 개 등록할 수 있습니다.</p>
+                    
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <div class="flex gap-3">
+                            <div class="text-blue-600 flex-shrink-0 mt-0.5">
+                                {{ svg_icon('information-circle', 'w-5 h-5') }}
+                            </div>
+                            <div class="text-sm text-blue-800">
+                                <p class="font-medium mb-1">법인 정보 조회 프로세스</p>
+                                <p>ERP 시스템에서 법인 정보와 회계 DB명을 먼저 등록한 후, 이 시스템에서 해당 정보를 조회하여 DB를 생성합니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ── 등록된 메인 DB 목록 ── -->
+                    <div class="mb-6">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-3">등록된 메인 DB</h4>
+                        
+                        <div class="border border-gray-200 rounded-lg overflow-hidden">
+                            <template x-if="mainDbEntries.length === 0">
+                                <div class="px-6 py-8 text-center text-gray-400 text-sm">
+                                    등록된 메인 DB가 없습니다. 아래에서 추가해주세요.
+                                </div>
+                            </template>
+                            <template x-if="mainDbEntries.length > 0">
+                                <table class="w-full text-sm">
+                                    <thead class="bg-gray-50 border-b border-gray-200">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left font-medium text-gray-600">서버</th>
+                                            <th class="px-4 py-3 text-left font-medium text-gray-600">DB명</th>
+                                            <th class="px-4 py-3 text-left font-medium text-gray-600">라벨</th>
+                                            <th class="px-4 py-3 text-center font-medium text-gray-600 w-20">삭제</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <template x-for="entry in mainDbEntries" :key="entry.id">
+                                            <tr class="border-b border-gray-100 hover:bg-gray-50">
+                                                <td class="px-4 py-3">
+                                                    <span class="text-gray-800" x-text="entry.server_name"></span>
+                                                    <span class="text-gray-400 text-xs ml-1" x-text="'(' + entry.server_host + ')'"></span>
+                                                </td>
+                                                <td class="px-4 py-3">
+                                                    <span class="font-mono text-primary-600 font-medium" x-text="entry.db_name"></span>
+                                                </td>
+                                                <td class="px-4 py-3 text-gray-600" x-text="entry.label"></td>
+                                                <td class="px-4 py-3 text-center">
+                                                    <button @click="deleteMainDbEntry(entry.id)"
+                                                            class="text-red-400 hover:text-red-600 transition-colors"
+                                                            title="삭제">
+                                                        {{ svg_icon('trash', 'w-4 h-4') }}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <!-- ── 메인 DB 추가 폼 ── -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-5 mb-6">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-4">메인 DB 추가</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">서버</label>
+                                <select x-model="newEntry.server_id"
+                                        class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition bg-white">
+                                    <option value="">서버 선택</option>
+                                    <template x-for="server in servers" :key="server.id">
+                                        <option :value="server.id" x-text="server.name + ' (' + server.host + ':' + server.port + ')'"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">DB명</label>
+                                <input type="text" 
+                                       x-model="newEntry.db_name"
+                                       placeholder="예: NXUNIES"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">라벨 (선택)</label>
+                                <input type="text" 
+                                       x-model="newEntry.label"
+                                       placeholder="자동 생성됨"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                        </div>
+                        <div class="flex gap-3 mt-4">
+                            <button @click="addMainDbEntry()" 
+                                    :disabled="!newEntry.server_id || !newEntry.db_name || addingEntry"
+                                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition">
+                                <div x-show="addingEntry" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <template x-if="!addingEntry">
+                                    {{ svg_icon('plus', 'w-4 h-4') }}
+                                </template>
+                                추가
+                            </button>
+                            <button @click="testMainDbEntry()" 
+                                    :disabled="!newEntry.server_id || !newEntry.db_name || testing"
+                                    class="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition">
+                                <div x-show="testing" class="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                <template x-if="!testing">
+                                    {{ svg_icon('globe', 'w-4 h-4') }}
+                                </template>
+                                연결 테스트
+                            </button>
+                        </div>
+                        
+                        <!-- 테스트 결과 -->
+                        <div x-show="testResult.show" x-cloak class="mt-4">
+                            <div :class="testResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'" 
+                                 class="border rounded-lg p-4">
+                                <div class="flex gap-3">
+                                    <div x-show="testResult.success" class="text-green-600 flex-shrink-0">{{ svg_icon('check-circle', 'w-5 h-5') }}</div>
+                                    <div x-show="!testResult.success" class="text-red-600 flex-shrink-0">{{ svg_icon('x-circle', 'w-5 h-5') }}</div>
+                                    <div>
+                                        <p :class="testResult.success ? 'text-green-800' : 'text-red-800'" class="font-medium" x-text="testResult.message"></p>
+                                        <div x-show="testResult.sample_data" class="mt-2 text-sm text-green-700">
+                                            <p class="font-medium mb-1">샘플 데이터:</p>
+                                            <pre class="bg-white bg-opacity-50 p-2 rounded text-xs overflow-x-auto" x-text="JSON.stringify(testResult.sample_data, null, 2)"></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- ── 컬럼 매핑 설정 (공통) ── -->
+                    <div class="border-t border-gray-200 pt-5">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-2">컬럼 매핑 설정</h4>
+                        <p class="text-xs text-gray-500 mb-4">모든 메인 DB에 공통으로 적용되는 테이블/컬럼 매핑입니다.</p>
+                        
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">법인 테이블명</label>
+                            <input type="text" 
+                                   x-model="columnMapping.corp_table_name"
+                                   placeholder="예: COMS_CMPNY"
+                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">법인코드 컬럼</label>
+                                <input type="text" 
+                                       x-model="columnMapping.corp_code_column"
+                                       placeholder="예: CORP_CD"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">법인명 컬럼</label>
+                                <input type="text" 
+                                       x-model="columnMapping.corp_name_column"
+                                       placeholder="예: CORP_NM"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">사업자번호 컬럼</label>
+                                <input type="text" 
+                                       x-model="columnMapping.biz_no_column"
+                                       placeholder="예: SAUPNO"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">대표자명 컬럼</label>
+                                <input type="text" 
+                                       x-model="columnMapping.repr_name_column"
+                                       placeholder="예: RPRSV_NM"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    회계 DB명 컬럼
+                                    <span class="text-red-500">*</span>
+                                    <span class="text-gray-400 font-normal ml-1">- 생성할 DB명을 가져올 컬럼</span>
+                                </label>
+                                <input type="text" 
+                                       x-model="columnMapping.acc_db_name_column"
+                                       placeholder="예: ACC_DB_NAME"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                        </div>
+                        
+                        <div class="pt-4">
+                            <button @click="saveColumnMapping()" 
+                                    :disabled="saving"
+                                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition">
+                                <div x-show="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <template x-if="!saving">
+                                    {{ svg_icon('check-circle', 'w-4 h-4') }}
+                                </template>
+                                컬럼 매핑 저장
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ============================================================ -->
+            <!-- 복제 설정 탭 -->
+            <!-- ============================================================ -->
+            <div x-show="activeTab === 'replication'" x-cloak>
+                <div class="max-w-2xl">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-1">복제 설정</h3>
+                    <p class="text-sm text-gray-500 mb-6">신규 법인 DB 생성 시 적용되는 기본값을 설정합니다.</p>
+                    
+                    <div class="space-y-5">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">기본 템플릿 DB</label>
+                            <input type="text" 
+                                   x-model="replication.default_template_db"
+                                   placeholder="예: ACC_STANDARD"
+                                   class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            <p class="text-xs text-gray-500 mt-1">스키마 복제 시 참조할 기본 템플릿 DB</p>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">DB 파일 경로 (Data)</label>
+                                <input type="text" 
+                                       x-model="replication.db_data_path"
+                                       placeholder="예: D:\MSSQL\Data\"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">DB 파일 경로 (Log)</label>
+                                <input type="text" 
+                                       x-model="replication.db_log_path"
+                                       placeholder="예: D:\MSSQL\Log\"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">초기 DB 크기 (MB)</label>
+                                <input type="number" 
+                                       x-model.number="replication.initial_db_size_mb"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">초기 로그 크기 (MB)</label>
+                                <input type="number" 
+                                       x-model.number="replication.initial_log_size_mb"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Data 증가 단위 (MB)</label>
+                                <input type="number" 
+                                       x-model.number="replication.file_growth_mb"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Log 증가 단위 (MB)</label>
+                                <input type="number" 
+                                       x-model.number="replication.log_growth_mb"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                            </div>
+                        </div>
+                        
+                        <!-- DB 계정 설정 -->
+                        <div class="border-t border-gray-200 pt-5 mt-5">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-4">DB 계정 설정</h4>
+                            <p class="text-xs text-gray-500 mb-4">신규 DB 생성 시 사용할 SQL Server 로그인 계정</p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">테스트 서버</label>
+                                    <select x-model="dbAccountTestServerId"
+                                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition bg-white">
+                                        <option value="">서버 선택</option>
+                                        <template x-for="server in servers" :key="server.id">
+                                            <option :value="server.id" x-text="server.name + ' (' + server.host + ')'"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">DB 계정 ID</label>
+                                    <input type="text" 
+                                           x-model="replication.default_db_account_id"
+                                           placeholder="예: db_user"
+                                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">DB 계정 비밀번호</label>
+                                    <div class="relative">
+                                        <input :type="showDbPassword ? 'text' : 'password'" 
+                                               x-model="replication.default_db_password"
+                                               placeholder="비밀번호 입력"
+                                               class="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                                        <button type="button" 
+                                                @click="showDbPassword = !showDbPassword"
+                                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                            <template x-if="!showDbPassword">
+                                                {{ svg_icon('magnifying-glass', 'w-5 h-5') }}
+                                            </template>
+                                            <template x-if="showDbPassword">
+                                                {{ svg_icon('x-mark', 'w-5 h-5') }}
+                                            </template>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <button @click="testDbAccountConnection()" 
+                                        :disabled="testingDbAccount || !dbAccountTestServerId || !replication.default_db_account_id || !replication.default_db_password"
+                                        class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition">
+                                    <div x-show="testingDbAccount" class="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                                    <template x-if="!testingDbAccount">
+                                        {{ svg_icon('globe', 'w-4 h-4') }}
+                                    </template>
+                                    DB 계정 연결 테스트
+                                </button>
+                            </div>
+                            <!-- DB 계정 테스트 결과 -->
+                            <div x-show="dbAccountTestResult.show" x-cloak class="mt-4">
+                                <div :class="dbAccountTestResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'" 
+                                     class="border rounded-lg p-4">
+                                    <div class="flex gap-3">
+                                        <div x-show="dbAccountTestResult.success" class="text-green-600 flex-shrink-0">{{ svg_icon('check-circle', 'w-5 h-5') }}</div>
+                                        <div x-show="!dbAccountTestResult.success" class="text-red-600 flex-shrink-0">{{ svg_icon('x-circle', 'w-5 h-5') }}</div>
+                                        <div>
+                                            <p :class="dbAccountTestResult.success ? 'text-green-800' : 'text-red-800'" class="font-medium" x-text="dbAccountTestResult.message"></p>
+                                            <p x-show="dbAccountTestResult.detail" class="text-sm mt-1" :class="dbAccountTestResult.success ? 'text-green-700' : 'text-red-700'" x-text="dbAccountTestResult.detail"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 애플리케이션 관리자 계정 설정 -->
+                        <div class="border-t border-gray-200 pt-5 mt-5">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-4">애플리케이션 관리자 계정</h4>
+                            <p class="text-xs text-gray-500 mb-4">생성된 DB의 TB_USER 테이블에 추가될 기본 관리자 계정</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">관리자 ID</label>
+                                    <input type="text" 
+                                           x-model="replication.default_admin_id"
+                                           placeholder="예: admin"
+                                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">관리자 비밀번호</label>
+                                    <div class="relative">
+                                        <input :type="showAdminPassword ? 'text' : 'password'" 
+                                               x-model="replication.default_admin_password"
+                                               placeholder="비밀번호 입력"
+                                               class="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition">
+                                        <button type="button" 
+                                                @click="showAdminPassword = !showAdminPassword"
+                                                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                            <template x-if="!showAdminPassword">
+                                                {{ svg_icon('magnifying-glass', 'w-5 h-5') }}
+                                            </template>
+                                            <template x-if="showAdminPassword">
+                                                {{ svg_icon('x-mark', 'w-5 h-5') }}
+                                            </template>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="pt-4">
+                            <button @click="saveReplicationSettings()" 
+                                    :disabled="saving"
+                                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition">
+                                <div x-show="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <template x-if="!saving">
+                                    {{ svg_icon('check-circle', 'w-4 h-4') }}
+                                </template>
+                                저장
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <!-- 토스트 메시지 -->
+    <div x-show="toast.show" 
+         x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         class="fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2"
+         :class="toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'">
+        <template x-if="toast.type === 'success'">
+            {{ svg_icon('check-circle', 'w-5 h-5') }}
+        </template>
+        <template x-if="toast.type === 'error'">
+            {{ svg_icon('x-circle', 'w-5 h-5') }}
+        </template>
+        <span x-text="toast.message"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function settingsPage() {
+    return {
+        loading: true,
+        saving: false,
+        testing: false,
+        addingEntry: false,
+        activeTab: 'alert',
+        
+        servers: [],
+        
+        alert: {
+            capacity_warning_percent: 80,
+            capacity_critical_percent: 90
+        },
+        
+        mainDbEntries: [],
+        newEntry: { server_id: '', db_name: '', label: '' },
+        
+        columnMapping: {
+            corp_table_name: 'COMS_CMPNY',
+            corp_code_column: 'CORP_CD',
+            corp_name_column: 'CORP_NM',
+            biz_no_column: 'SAUPNO',
+            repr_name_column: 'RPRSV_NM',
+            acc_db_name_column: 'ACC_DB_NAME'
+        },
+        
+        mainDb: {
+            main_db_server_id: null,
+            main_db_name: '',
+            corp_table_name: 'COMS_CMPNY',
+            corp_code_column: 'CORP_CD',
+            corp_name_column: 'CORP_NM',
+            biz_no_column: 'SAUPNO',
+            repr_name_column: 'RPRSV_NM',
+            acc_db_name_column: 'ACC_DB_NAME'
+        },
+        
+        replication: {
+            default_template_db: 'ACC_STANDARD',
+            db_data_path: '/Data/mssql/data/',
+            db_log_path: '/Data/mssql/log/',
+            initial_db_size_mb: 100,
+            initial_log_size_mb: 64,
+            file_growth_mb: 100,
+            log_growth_mb: 1024,
+            default_db_account_id: '',
+            default_db_password: '',
+            default_admin_id: 'admin',
+            default_admin_password: ''
+        },
+        
+        // ★ null 대신 기본 객체로 초기화 (Alpine Expression Error 방지)
+        testResult: { show: false, success: false, message: '', sample_data: null },
+        dbAccountTestServerId: null,
+        testingDbAccount: false,
+        dbAccountTestResult: { show: false, success: false, message: '', detail: '' },
+        
+        showDbPassword: false,
+        showAdminPassword: false,
+        
+        toast: { show: false, message: '', type: 'success' },
+        
+        async init() {
+            await this.loadAllSettings();
+            this.loading = false;
+        },
+        
+        async loadAllSettings() {
+            try {
+                var response = await fetch('/api/settings/all');
+                var data = await response.json();
+                
+                this.alert = data.alert;
+                this.replication = data.replication;
+                this.servers = data.servers;
+                
+                if (data.main_db && data.main_db.entries) {
+                    this.mainDbEntries = data.main_db.entries;
+                }
+                
+                if (data.main_db) {
+                    this.columnMapping = {
+                        corp_table_name: data.main_db.corp_table_name || 'COMS_CMPNY',
+                        corp_code_column: data.main_db.corp_code_column || 'CORP_CD',
+                        corp_name_column: data.main_db.corp_name_column || 'CORP_NM',
+                        biz_no_column: data.main_db.biz_no_column || 'SAUPNO',
+                        repr_name_column: data.main_db.repr_name_column || 'RPRSV_NM',
+                        acc_db_name_column: data.main_db.acc_db_name_column || 'ACC_DB_NAME'
+                    };
+                    this.mainDb = Object.assign({}, data.main_db);
+                }
+                
+                if (!this.replication.log_growth_mb) {
+                    this.replication.log_growth_mb = this.replication.file_growth_mb || 1024;
+                }
+            } catch (error) {
+                console.error('설정 로드 실패:', error);
+                this.showToast('설정을 불러오는데 실패했습니다.', 'error');
+            }
+        },
+        
+        async addMainDbEntry() {
+            this.addingEntry = true;
+            try {
+                var response = await fetch('/api/settings/main-db/entries', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        server_id: parseInt(this.newEntry.server_id),
+                        db_name: this.newEntry.db_name,
+                        label: this.newEntry.label
+                    })
+                });
+                var data = await response.json();
+                if (response.ok) {
+                    this.mainDbEntries.push(data.entry);
+                    this.newEntry = { server_id: '', db_name: '', label: '' };
+                    this.showToast('메인 DB가 추가되었습니다.', 'success');
+                } else {
+                    this.showToast(data.detail || '추가에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                this.showToast('추가에 실패했습니다.', 'error');
+            } finally {
+                this.addingEntry = false;
+            }
+        },
+        
+        async deleteMainDbEntry(entryId) {
+            if (!confirm('이 메인 DB를 삭제하시겠습니까?')) return;
+            try {
+                var response = await fetch('/api/settings/main-db/entries/' + entryId, {
+                    method: 'DELETE'
+                });
+                if (response.ok) {
+                    this.mainDbEntries = this.mainDbEntries.filter(function(e) { return e.id !== entryId; });
+                    this.showToast('메인 DB가 삭제되었습니다.', 'success');
+                } else {
+                    this.showToast('삭제에 실패했습니다.', 'error');
+                }
+            } catch (error) {
+                this.showToast('삭제에 실패했습니다.', 'error');
+            }
+        },
+        
+        async testMainDbEntry() {
+            this.testing = true;
+            this.testResult = { show: false, success: false, message: '', sample_data: null };
+            try {
+                var response = await fetch('/api/settings/main-db/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        main_db_server_id: parseInt(this.newEntry.server_id),
+                        main_db_name: this.newEntry.db_name,
+                        corp_table_name: this.columnMapping.corp_table_name,
+                        corp_code_column: this.columnMapping.corp_code_column,
+                        corp_name_column: this.columnMapping.corp_name_column,
+                        biz_no_column: this.columnMapping.biz_no_column,
+                        repr_name_column: this.columnMapping.repr_name_column,
+                        acc_db_name_column: this.columnMapping.acc_db_name_column
+                    })
+                });
+                var data = await response.json();
+                if (response.ok) {
+                    this.testResult = { show: true, success: true, message: '연결 테스트 성공', sample_data: data.sample_data };
+                } else {
+                    this.testResult = { show: true, success: false, message: data.detail || '연결 테스트 실패', sample_data: null };
+                }
+            } catch (error) {
+                this.testResult = { show: true, success: false, message: '연결 테스트 중 오류가 발생했습니다.', sample_data: null };
+            } finally {
+                this.testing = false;
+            }
+        },
+        
+        async saveColumnMapping() {
+            this.saving = true;
+            try {
+                var response = await fetch('/api/settings/main-db/columns', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.columnMapping)
+                });
+                if (response.ok) {
+                    this.showToast('컬럼 매핑 설정이 저장되었습니다.', 'success');
+                } else {
+                    throw new Error('저장 실패');
+                }
+            } catch (error) {
+                this.showToast('저장에 실패했습니다.', 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+        
+        async saveAlertSettings() {
+            this.saving = true;
+            try {
+                var response = await fetch('/api/settings/alert', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.alert)
+                });
+                if (response.ok) {
+                    this.showToast('알림 설정이 저장되었습니다.', 'success');
+                } else {
+                    throw new Error('저장 실패');
+                }
+            } catch (error) {
+                this.showToast('저장에 실패했습니다.', 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+        
+        async testDbAccountConnection() {
+            this.testingDbAccount = true;
+            this.dbAccountTestResult = { show: false, success: false, message: '', detail: '' };
+            try {
+                var response = await fetch('/api/settings/replication/test-db-account', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        server_id: parseInt(this.dbAccountTestServerId),
+                        db_account_id: this.replication.default_db_account_id,
+                        db_password: this.replication.default_db_password
+                    })
+                });
+                var data = await response.json();
+                if (response.ok) {
+                    this.dbAccountTestResult = { show: true, success: true, message: data.message, detail: data.detail || '' };
+                } else {
+                    this.dbAccountTestResult = { show: true, success: false, message: '연결 테스트 실패', detail: data.detail || '' };
+                }
+            } catch (error) {
+                this.dbAccountTestResult = { show: true, success: false, message: '연결 테스트 중 오류가 발생했습니다.', detail: '' };
+            } finally {
+                this.testingDbAccount = false;
+            }
+        },
+        
+        async saveReplicationSettings() {
+            this.saving = true;
+            try {
+                var response = await fetch('/api/settings/replication', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.replication)
+                });
+                if (response.ok) {
+                    this.showToast('복제 설정이 저장되었습니다.', 'success');
+                } else {
+                    throw new Error('저장 실패');
+                }
+            } catch (error) {
+                this.showToast('저장에 실패했습니다.', 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+        
+        showToast(message, type) {
+            type = type || 'success';
+            this.toast = { show: true, message: message, type: type };
+            var self = this;
+            setTimeout(function() {
+                self.toast.show = false;
+            }, 3000);
+        }
+    };
+}
+</script>
+{% endblock %}

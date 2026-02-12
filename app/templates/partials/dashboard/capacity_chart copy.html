@@ -1,0 +1,51 @@
+<!-- DB별 용량 차트 -->
+<div class="space-y-4">
+    <!-- 범례 -->
+    <div class="flex items-center justify-between text-sm text-gray-500">
+        <span>상위 {{ databases | length }}개 DB (용량 기준)</span>
+        <span>단위: GB</span>
+    </div>
+    
+    <!-- 막대 그래프 -->
+    <div class="space-y-3">
+        {% set max_size = databases[0].size_mb if databases else 1 %}
+        {% for db in databases %}
+        <div class="group">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-sm font-medium text-gray-700 truncate max-w-[200px]" title="{{ db.db_name }}">
+                    {{ db.db_name }}
+                </span>
+                <span class="text-sm text-gray-500">
+                    {{ "%.1f"|format(db.size_mb / 1024) }} GB
+                </span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                {% set percent = (db.size_mb / max_size * 100) | int %}
+                {% set color = 'bg-blue-500' if percent < 70 else ('bg-yellow-500' if percent < 90 else 'bg-red-500') %}
+                <div class="{{ color }} h-6 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+                     style="width: {{ percent }}%">
+                    {% if percent > 15 %}
+                    <span class="text-xs text-white font-medium">{{ percent }}%</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-gray-400">
+            <p>데이터가 없습니다</p>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- 총 용량 -->
+    {% if databases %}
+    <div class="pt-4 border-t border-gray-200">
+        <div class="flex items-center justify-between text-sm">
+            <span class="text-gray-500">상위 {{ databases | length }}개 합계</span>
+            <span class="font-semibold text-gray-800">
+                {{ "%.1f"|format(databases | sum(attribute='size_mb') / 1024) }} GB
+            </span>
+        </div>
+    </div>
+    {% endif %}
+</div>

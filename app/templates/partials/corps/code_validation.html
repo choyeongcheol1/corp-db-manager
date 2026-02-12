@@ -1,0 +1,8 @@
+<!-- 법인코드 유효성 검사 결과 -->
+{% if valid %}
+<p class="text-sm text-green-600 mt-1">✅ {{ message }}</p>
+<input type="hidden" name="corp_code_valid" value="true">
+{% else %}
+<p class="text-sm text-red-600 mt-1">❌ {{ message }}</p>
+<input type="hidden" name="corp_code_valid" value="false">
+{% endif %}

@@ -1,0 +1,738 @@
+{% from "components/icons.html" import svg_icon %}
+
+<!-- 아이콘 프리렌더 (JS에서 참조용) -->
+<template id="icon-rocket">{{ svg_icon('rocket-launch', 'w-5 h-5') }}</template>
+<template id="icon-arrow-left">{{ svg_icon('arrow-left', 'w-5 h-5') }}</template>
+
+<!-- 2단계: SQL 미리보기/수정 -->
+<div class="space-y-6" id="step2-main">
+    <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <span class="text-primary-600">{{ svg_icon('code-bracket', 'w-5 h-5') }}</span>
+                생성 SQL 미리보기
+            </h3>
+            <button onclick="downloadSql()" 
+                    class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center gap-1">
+                {{ svg_icon('arrow-down-tray', 'w-4 h-4') }}
+                SQL 다운로드
+            </button>
+        </div>
+        
+        <p class="text-sm text-gray-500 mb-4">SQL을 확인하고 필요시 수정하세요. 수정 후 [실행] 버튼을 클릭하면 DB가 생성됩니다.</p>
+        
+        <!-- SQL 편집기 -->
+        <div class="border border-gray-300 rounded-lg overflow-hidden">
+            <textarea id="sql-editor"
+                      class="w-full h-96 p-4 font-mono text-sm bg-gray-50 focus:outline-none focus:bg-white"
+                      spellcheck="false"></textarea>
+        </div>
+        
+        <!-- ============================================================ -->
+        <!-- DB 옵션 설정 (자동 적용 - 읽기 전용) -->
+        <!-- ============================================================ -->
+        <div class="mt-4 border border-gray-200 rounded-lg overflow-hidden" x-data="{ open: false }">
+            <!-- 접힌 상태 헤더 -->
+            <div class="flex items-center justify-between px-4 py-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition"
+                 @click="open = !open">
+                <div class="flex items-center gap-2">
+                    <span class="text-gray-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+                        </svg>
+                    </span>
+                    <span class="text-sm font-medium text-gray-700">DB 옵션 설정</span>
+                    <span class="px-1.5 py-0.5 text-xs bg-gray-200 text-gray-500 rounded">자동 적용</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="hidden sm:flex items-center gap-1.5 text-xs text-gray-500" x-show="!open" x-cloak>
+                        <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded">RECOVERY SIMPLE</span>
+                        <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded">Query Store ON</span>
+                        <span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded">CHECKSUM</span>
+                    </div>
+                    <svg class="w-4 h-4 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                    </svg>
+                </div>
+            </div>
+            
+            <!-- 펼친 상태 상세 내용 -->
+            <div x-show="open" x-cloak
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 -translate-y-1"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 -translate-y-1"
+                 class="border-t border-gray-200">
+                
+                <div class="p-5 space-y-4">
+                    <p class="text-xs text-gray-500">
+                        DB 생성 후 아래 옵션이 자동으로 적용됩니다. 이 설정은 운영 표준에 따라 시스템이 관리하며 수정할 수 없습니다.
+                    </p>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        
+                        <!-- 데이터 처리 규칙 -->
+                        <div class="border border-gray-100 rounded-lg overflow-hidden">
+                            <div class="px-3 py-2 bg-slate-50 border-b border-gray-100">
+                                <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">데이터 처리 규칙</h4>
+                            </div>
+                            <div class="divide-y divide-gray-50">
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">ANSI_NULL_DEFAULT</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">ANSI_NULLS</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">ANSI_PADDING</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">ANSI_WARNINGS</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">ARITHABORT</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">CONCAT_NULL_YIELDS_NULL</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">NUMERIC_ROUNDABORT</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">QUOTED_IDENTIFIER</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">RECURSIVE_TRIGGERS</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 성능 최적화 -->
+                        <div class="border border-gray-100 rounded-lg overflow-hidden">
+                            <div class="px-3 py-2 bg-slate-50 border-b border-gray-100">
+                                <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">성능 최적화</h4>
+                            </div>
+                            <div class="divide-y divide-gray-50">
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">AUTO_CLOSE</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">AUTO_SHRINK</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">AUTO_UPDATE_STATISTICS</span>
+                                    <span class="font-medium text-gray-800">ON</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">AUTO_UPDATE_STATISTICS_ASYNC</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">CURSOR_CLOSE_ON_COMMIT</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">CURSOR_DEFAULT</span>
+                                    <span class="font-medium text-gray-800">GLOBAL</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">PARAMETERIZATION</span>
+                                    <span class="font-medium text-gray-800">SIMPLE</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">DATE_CORRELATION_OPTIMIZATION</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 보안 설정 -->
+                        <div class="border border-gray-100 rounded-lg overflow-hidden">
+                            <div class="px-3 py-2 bg-slate-50 border-b border-gray-100">
+                                <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">보안 설정</h4>
+                            </div>
+                            <div class="divide-y divide-gray-50">
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">TRUSTWORTHY</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">DB_CHAINING</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">ALLOW_SNAPSHOT_ISOLATION</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">READ_COMMITTED_SNAPSHOT</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 복구 및 운영 모드 -->
+                        <div class="border border-gray-100 rounded-lg overflow-hidden">
+                            <div class="px-3 py-2 bg-slate-50 border-b border-gray-100">
+                                <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">복구 및 운영 모드</h4>
+                            </div>
+                            <div class="divide-y divide-gray-50">
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">RECOVERY</span>
+                                    <span class="font-medium text-blue-700">SIMPLE</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">MULTI_USER</span>
+                                    <span class="font-medium text-gray-800">ON</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">DISABLE_BROKER</span>
+                                    <span class="font-medium text-gray-800">ON</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">HONOR_BROKER_PRIORITY</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 스토리지 설정 -->
+                        <div class="border border-gray-100 rounded-lg overflow-hidden">
+                            <div class="px-3 py-2 bg-slate-50 border-b border-gray-100">
+                                <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">스토리지 설정</h4>
+                            </div>
+                            <div class="divide-y divide-gray-50">
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">PAGE_VERIFY</span>
+                                    <span class="font-medium text-blue-700">CHECKSUM</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">TARGET_RECOVERY_TIME</span>
+                                    <span class="font-medium text-gray-800">60초</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">DELAYED_DURABILITY</span>
+                                    <span class="font-medium text-gray-800">DISABLED</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">ACCELERATED_DATABASE_RECOVERY</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">FILESTREAM</span>
+                                    <span class="font-medium text-gray-800">OFF</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 쿼리 성능 모니터링 -->
+                        <div class="border border-gray-100 rounded-lg overflow-hidden">
+                            <div class="px-3 py-2 bg-slate-50 border-b border-gray-100">
+                                <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wide">쿼리 성능 모니터링</h4>
+                            </div>
+                            <div class="divide-y divide-gray-50">
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">QUERY_STORE</span>
+                                    <span class="font-medium text-blue-700">ON (READ_WRITE)</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">MAX_STORAGE_SIZE_MB</span>
+                                    <span class="font-medium text-gray-800">1000</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">QUERY_CAPTURE_MODE</span>
+                                    <span class="font-medium text-gray-800">AUTO</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">STALE_QUERY_THRESHOLD_DAYS</span>
+                                    <span class="font-medium text-gray-800">30</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">DATA_FLUSH_INTERVAL_SECONDS</span>
+                                    <span class="font-medium text-gray-800">900</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs bg-gray-50/50">
+                                    <span class="font-mono text-gray-600">INTERVAL_LENGTH_MINUTES</span>
+                                    <span class="font-medium text-gray-800">60</span>
+                                </div>
+                                <div class="flex justify-between px-3 py-1.5 text-xs">
+                                    <span class="font-mono text-gray-600">MAX_PLANS_PER_QUERY</span>
+                                    <span class="font-medium text-gray-800">200</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- 하단 안내 -->
+                    <div class="flex items-start gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                        <svg class="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                        </svg>
+                        <p class="text-xs text-amber-700">
+                            이 설정은 운영 표준에 따라 시스템이 자동 적용합니다. 변경이 필요하면 시스템 관리자에게 문의하세요.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 요약 정보 -->
+        <div id="sql-summary" class="mt-4 p-4 bg-blue-50 rounded-lg">
+        </div>
+    </div>
+    
+    <!-- 하단 버튼 -->
+    <div class="flex justify-center gap-4">
+        <button type="button" onclick="goBack()"
+                class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center gap-2">
+            {{ svg_icon('arrow-left', 'w-5 h-5') }}
+            이전
+        </button>
+        <button type="button" onclick="showExecuteModal()" id="execute-btn"
+                class="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2">
+            {{ svg_icon('rocket-launch', 'w-5 h-5') }}
+            실행
+        </button>
+    </div>
+</div>
+
+<!-- 실행 확인 모달 -->
+<div id="execute-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
+        <!-- 모달 헤더 -->
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
+            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                {{ svg_icon('circle-stack', 'w-6 h-6 text-green-600') }}
+            </div>
+            <h3 class="text-xl font-bold text-gray-800">DB 생성 확인</h3>
+        </div>
+        
+        <!-- 모달 본문 -->
+        <div class="p-6">
+            <p class="text-gray-800 font-medium mb-2">SQL을 실행하여 DB를 생성하시겠습니까?</p>
+            <p class="text-sm text-gray-500 mb-4">이 작업은 대상 서버에 새로운 데이터베이스를 생성합니다.</p>
+            
+            <!-- 생성 정보 요약 -->
+            <div class="p-4 bg-gray-50 rounded-lg text-sm space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">대상 DB:</span>
+                    <span id="modal-db-name" class="font-medium text-gray-800">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">법인코드:</span>
+                    <span id="modal-corp-code" class="font-medium text-gray-800">-</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">법인명:</span>
+                    <span id="modal-corp-name" class="font-medium text-gray-800">-</span>
+                </div>
+            </div>
+            
+            <!-- 자동 실행 안내 -->
+            <div class="mt-3 p-3 bg-blue-50 rounded-lg">
+                <p class="text-xs text-blue-700 font-medium mb-1">실행 후 자동 처리 항목:</p>
+                <ul class="text-xs text-blue-600 space-y-0.5 ml-3">
+                    <li>• DB 옵션 설정 (운영 표준 적용)</li>
+                    <li>• 스키마 복제 (테이블, 인덱스)</li>
+                    <li>• 기초 데이터 복제</li>
+                    <li>• 계정 생성</li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- 모달 푸터 -->
+        <div class="px-6 py-4 bg-gray-50 flex justify-end gap-3">
+            <button onclick="hideExecuteModal()" 
+                    class="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                취소
+            </button>
+            <button onclick="executeSql()" id="modal-execute-btn"
+                    class="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2">
+                {{ svg_icon('rocket-launch', 'w-5 h-5') }}
+                실행
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// 아이콘 헬퍼 (template 요소에서 프리렌더된 아이콘 HTML 가져오기)
+function getIcon(name) {
+    const tpl = document.getElementById('icon-' + name);
+    return tpl ? tpl.innerHTML : '';
+}
+
+// 실행 확인 모달 표시 (DB 중복 검사 포함)
+async function showExecuteModal() {
+    const corpCode = document.getElementById('corp-code').value;
+    const corpName = document.getElementById('corp-name').value;
+    const accDbName = document.getElementById('acc-db-name').value;
+    const targetServer = document.getElementById('target-server').value;
+    const dbName = accDbName || 'ACC_' + corpCode;
+    
+    // DB 중복 검사
+    try {
+        const checkResult = await fetch(`/partials/corps/check-db-exists?server_id=${targetServer}&db_name=${encodeURIComponent(dbName)}`)
+            .then(r => r.json());
+        
+        if (checkResult.exists) {
+            showToast(`DB '${dbName}'이(가) 대상 서버에 이미 존재합니다.`, 'error');
+            return;
+        }
+    } catch (e) {
+        // 검사 실패 시 경고만 표시하고 계속 진행
+        console.warn('DB 중복 검사 실패:', e);
+    }
+    
+    document.getElementById('modal-db-name').textContent = dbName;
+    document.getElementById('modal-corp-code').textContent = corpCode;
+    document.getElementById('modal-corp-name').textContent = corpName;
+    
+    // 모달 실행 버튼 활성화 (이전 실행에서 비활성화됐을 수 있음)
+    const modalBtn = document.getElementById('modal-execute-btn');
+    if (modalBtn) {
+        modalBtn.disabled = false;
+        modalBtn.innerHTML = getIcon('rocket') + ' 실행';
+    }
+    
+    document.getElementById('execute-modal').classList.remove('hidden');
+}
+
+// 실행 확인 모달 숨기기
+function hideExecuteModal() {
+    document.getElementById('execute-modal').classList.add('hidden');
+}
+
+// SQL 실행
+function executeSql() {
+    const sql = document.getElementById('sql-editor').value;
+    const sourceServer = document.getElementById('source-server').value;
+    const sourceDb = document.getElementById('source-db').value;
+    const targetServer = document.getElementById('target-server').value;
+    const corpCode = document.getElementById('corp-code').value;
+    const corpName = document.getElementById('corp-name').value;
+    const bizNo = document.getElementById('biz-no').value;
+    
+    // 모달 + 메인 버튼 모두 비활성화 (더블 클릭 방지)
+    const modalBtn = document.getElementById('modal-execute-btn');
+    if (modalBtn) {
+        modalBtn.disabled = true;
+        modalBtn.innerHTML = '처리 중...';
+    }
+    
+    // 모달 닫기
+    hideExecuteModal();
+    
+    // 버튼 로딩 상태
+    const executeBtn = document.getElementById('execute-btn');
+    executeBtn.disabled = true;
+    executeBtn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 생성 중...';
+    
+    fetch('/partials/corps/execute-sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            source_server_id: parseInt(sourceServer),
+            source_db_name: sourceDb,
+            target_server_id: parseInt(targetServer),
+            corp_code: corpCode,
+            corp_name: corpName,
+            biz_no: bizNo,
+            sql: sql
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // 버튼 원복
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = getIcon('rocket') + ' 실행';
+        
+        if (data.success) {
+            showToast('DB가 성공적으로 생성되었습니다.', 'success');
+            
+            // 후속 작업용 변수 저장
+            window._createdDbInfo = {
+                targetServerId: parseInt(targetServer),
+                dbName: data.db_name || data.target_db,
+                serverName: data.server_name,
+                sourceServerId: parseInt(sourceServer),
+                sourceDb: sourceDb
+            };
+            
+            // 성공 결과 표시
+            document.getElementById('create-result').innerHTML = buildSuccessHtml(data);
+            document.getElementById('step2-main').classList.add('hidden');
+        } else {
+            showToast(data.error || 'DB 생성에 실패했습니다.', 'error');
+            
+            // 실패 결과 표시
+            document.getElementById('create-result').innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-xl p-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-red-800">DB 생성 실패</h3>
+                            <p class="text-red-600 text-sm">${data.error || '오류가 발생했습니다.'}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = getIcon('rocket') + ' 실행';
+        // 모달 버튼 원복
+        const modalBtn = document.getElementById('modal-execute-btn');
+        if (modalBtn) {
+            modalBtn.disabled = false;
+            modalBtn.innerHTML = getIcon('rocket') + ' 실행';
+        }
+        showToast('실행 중 오류가 발생했습니다: ' + error, 'error');
+    });
+}
+
+// ============================================================
+// 성공 결과 HTML 생성
+// ============================================================
+function buildSuccessHtml(data) {
+    const dbName = data.db_name || '-';
+    const serverName = data.server_name || '-';
+    const elapsed = data.elapsed_seconds || 0;
+    const tableCount = data.table_count || 0;
+    const warnings = data.warnings || [];
+    
+    let warningsHtml = '';
+    if (warnings.length > 0) {
+        warningsHtml = `
+            <div class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p class="text-xs font-medium text-amber-700 mb-1">설정 경고 (${warnings.length}건)</p>
+                <ul class="text-xs text-amber-600 space-y-0.5">
+                    ${warnings.map(w => `<li class="truncate" title="${w}">• ${w}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    }
+    
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            
+            <!-- 성공 헤더 -->
+            <div class="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-5">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">DB 생성 완료</h3>
+                        <p class="text-green-100 text-sm">${data.message || '법인 DB가 성공적으로 생성되었습니다.'}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-6 space-y-5">
+                
+                <!-- 생성 정보 -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="text-center p-3 bg-gray-50 rounded-lg">
+                        <p class="text-xs text-gray-500 mb-1">DB명</p>
+                        <p class="font-mono font-semibold text-gray-800">${dbName}</p>
+                    </div>
+                    <div class="text-center p-3 bg-gray-50 rounded-lg">
+                        <p class="text-xs text-gray-500 mb-1">서버</p>
+                        <p class="font-semibold text-gray-800">${serverName}</p>
+                    </div>
+                    <div class="text-center p-3 bg-gray-50 rounded-lg">
+                        <p class="text-xs text-gray-500 mb-1">테이블</p>
+                        <p class="font-semibold text-gray-800">${tableCount}개</p>
+                    </div>
+                    <div class="text-center p-3 bg-gray-50 rounded-lg">
+                        <p class="text-xs text-gray-500 mb-1">소요시간</p>
+                        <p class="font-semibold text-gray-800">${elapsed}초</p>
+                    </div>
+                </div>
+                
+                ${warningsHtml}
+                
+                <!-- 연결 테스트 -->
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 bg-blue-50 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-800">연결 테스트</p>
+                                <p class="text-xs text-gray-500">생성된 DB에 정상 접속되는지 확인합니다</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="conn-test-result" class="text-sm"></span>
+                            <button onclick="testCreatedDb()" id="conn-test-btn"
+                                    class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z"/>
+                                </svg>
+                                테스트
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 다음 단계: 테이블 초기화 -->
+                <div class="border-2 border-blue-200 bg-blue-50/50 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-800">테이블 초기화</p>
+                                <p class="text-xs text-gray-500">기준 데이터를 소스 DB에서 복사합니다</p>
+                            </div>
+                        </div>
+                        <a href="/db/table-init" 
+                           class="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition flex items-center gap-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+                            </svg>
+                            진행
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- 보조 링크 -->
+                <div class="flex justify-center gap-6 pt-2 border-t border-gray-100">
+                    <a href="/db/list" class="text-sm text-gray-500 hover:text-gray-700 transition">DB 목록</a>
+                    <span class="text-gray-300">|</span>
+                    <a href="/db/create" class="text-sm text-gray-500 hover:text-gray-700 transition">다른 법인 생성</a>
+                </div>
+                
+            </div>
+        </div>
+    `;
+}
+
+// ============================================================
+// 연결 테스트
+// ============================================================
+function testCreatedDb() {
+    const info = window._createdDbInfo;
+    if (!info) {
+        showToast('생성 정보를 찾을 수 없습니다.', 'error');
+        return;
+    }
+    
+    const btn = document.getElementById('conn-test-btn');
+    const resultEl = document.getElementById('conn-test-result');
+    
+    // 로딩 상태
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 테스트 중...';
+    resultEl.innerHTML = '';
+    
+    fetch(`/partials/corps/test-created-db`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            server_id: info.targetServerId,
+            db_name: info.dbName
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        btn.disabled = false;
+        
+        if (data.success) {
+            btn.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                </svg>
+                성공`;
+            btn.className = 'px-4 py-2 bg-green-600 text-white text-sm rounded-lg flex items-center gap-1.5 cursor-default';
+            resultEl.innerHTML = `<span class="text-xs text-green-600 font-medium">${data.table_count || 0}개 테이블 확인</span>`;
+        } else {
+            btn.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+                실패`;
+            btn.className = 'px-4 py-2 bg-red-600 text-white text-sm rounded-lg flex items-center gap-1.5 cursor-default';
+            resultEl.innerHTML = `<span class="text-xs text-red-600">${data.error || '연결 실패'}</span>`;
+            
+            // 3초 후 재시도 가능하게
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.className = 'px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition flex items-center gap-1.5';
+                btn.innerHTML = `
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"/>
+                    </svg>
+                    재시도`;
+            }, 3000);
+        }
+    })
+    .catch(error => {
+        btn.disabled = false;
+        btn.innerHTML = `
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 010-7.07m7.072 0a5 5 0 010 7.07M13 12a1 1 0 11-2 0 1 1 0 012 0z"/>
+            </svg>
+            테스트`;
+        resultEl.innerHTML = `<span class="text-xs text-red-600">오류 발생</span>`;
+        showToast('연결 테스트 중 오류: ' + error, 'error');
+    });
+}
+
+// SQL 다운로드
+function downloadSql() {
+    const sql = document.getElementById('sql-editor').value;
+    const corpCode = document.getElementById('corp-code').value;
+    
+    const blob = new Blob([sql], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `create_${corpCode}_db.sql`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ESC 키로 모달 닫기
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        hideExecuteModal();
+    }
+});
+
+// 모달 배경 클릭 시 닫기
+document.getElementById('execute-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        hideExecuteModal();
+    }
+});
+</script>

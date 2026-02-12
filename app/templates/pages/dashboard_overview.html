@@ -1,0 +1,742 @@
+<!-- 대시보드 현황 탭 내용 -->
+{% from "components/icons.html" import svg_icon %}
+
+<!-- ============================================================
+     개선 1: 요약 카드 - 서버 수, 전체 용량 추가
+     기존 HTMX partials 유지 + 추가 지표
+     ============================================================ -->
+
+<!-- 요약 카드 (HTMX로 로드) -->
+<div hx-get="/partials/dashboard/stats{% if server_id %}?server_id={{ server_id }}{% endif %}"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+    <!-- 로딩 플레이스홀더 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {% for i in range(4) %}
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100 animate-pulse">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="h-4 w-16 bg-gray-200 rounded mb-2"></div>
+                    <div class="h-8 w-12 bg-gray-200 rounded"></div>
+                </div>
+                <div class="w-12 h-12 bg-gray-200 rounded-lg"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- ============================================================
+     개선 2, 3, 4: 차트 + 이력 개선
+     ============================================================ -->
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+    
+    <!-- ============================================================
+         개선 2: DB별 용량 차트 가독성 개선
+         - Alpine.js 기반 검색/정렬 (프론트 처리)
+         - HTMX partials HTML을 fetch로 받아 파싱
+         ============================================================ -->
+    <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100" x-data="capacityChart()" x-init="init()">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                {{ svg_icon('chart-bar', 'w-5 h-5 text-primary-600') }}
+                DB별 용량
+            </h3>
+            {% if server_id %}
+            <div class="flex items-center gap-2" x-show="!loading && databases.length > 0" x-cloak>
+                <!-- 검색 -->
+                <div class="relative">
+                    <input type="text" x-model="searchQuery" placeholder="DB 검색..."
+                           class="pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 w-36">
+                    <svg class="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </div>
+                <!-- 정렬 -->
+                <select x-model="sortBy" class="text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-primary-500">
+                    <option value="size_desc">용량 큰 순</option>
+                    <option value="size_asc">용량 작은 순</option>
+                    <option value="name_asc">이름 순</option>
+                    <option value="name_desc">이름 역순</option>
+                </select>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if server_id %}
+        <!-- 로딩 -->
+        <div x-show="loading" class="space-y-3 animate-pulse">
+            {% for i in range(5) %}
+            <div>
+                <div class="h-4 w-32 bg-gray-200 rounded mb-1"></div>
+                <div class="h-6 bg-gray-200 rounded-full"></div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- 데이터 영역 -->
+        <div x-show="!loading" x-cloak class="space-y-4">
+            <div class="flex items-center justify-between text-sm text-gray-500">
+                <span>
+                    <template x-if="searchQuery">
+                        <span>검색 결과: <span class="font-medium" x-text="filteredDatabases.length"></span>건</span>
+                    </template>
+                    <template x-if="!searchQuery">
+                        <span>전체 <span x-text="databases.length"></span>개 DB</span>
+                    </template>
+                </span>
+                <span>단위: GB</span>
+            </div>
+            
+            <!-- 막대 그래프 -->
+            <div class="max-h-80 overflow-y-auto space-y-3">
+                <template x-for="db in filteredDatabases" :key="db.name">
+                    <div class="group">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm font-medium text-gray-700 truncate max-w-[200px]" 
+                                  :title="db.name" x-text="db.name"></span>
+                            <div class="flex items-center gap-2">
+                                <!-- 디스크 사용률 배지 -->
+                                <span x-show="db.hasDiskInfo"
+                                      class="text-xs px-1.5 py-0.5 rounded"
+                                      :class="db.diskUsedPct >= 90 ? 'bg-red-100 text-red-600' : 
+                                              (db.diskUsedPct >= 80 ? 'bg-amber-100 text-amber-600' : 'bg-gray-100 text-gray-500')"
+                                      :title="'디스크 ' + db.drive + ': ' + db.diskUsedPct + '% 사용 (여유: ' + db.diskFreeGb + 'GB)'"
+                                      x-text="'💽 ' + db.diskUsedPct + '%'">
+                                </span>
+                                <span class="text-sm text-gray-500" x-text="db.sizeGb"></span>
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                            <div class="h-6 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+                                 :class="db.hasDiskInfo 
+                                     ? (db.diskUsedPct >= 90 ? 'bg-red-500' : (db.diskUsedPct >= 80 ? 'bg-amber-500' : 'bg-blue-500'))
+                                     : (db.rank < 3 ? 'bg-blue-600' : 'bg-blue-400')"
+                                 :style="'width: ' + db.percent + '%'">
+                                <span x-show="db.percent > 15" 
+                                      class="text-xs text-white font-medium" 
+                                      x-text="db.percent + '%'"></span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                
+                <div x-show="filteredDatabases.length === 0" class="text-center py-8 text-gray-400">
+                    <p>검색 결과가 없습니다</p>
+                </div>
+            </div>
+            
+            <!-- 총 용량 -->
+            <div x-show="databases.length > 0" class="pt-3 border-t border-gray-200">
+                <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-500" x-text="(searchQuery ? '검색 결과 ' + filteredDatabases.length + '개' : '전체 ' + databases.length + '개') + ' 합계'"></span>
+                    <span class="font-semibold text-gray-800" x-text="totalSizeGb"></span>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="h-64 flex items-center justify-center text-gray-400">
+            <div class="text-center">
+                <div class="w-12 h-12 mx-auto bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-3">
+                    {{ svg_icon('chart-bar', 'w-6 h-6') }}
+                </div>
+                <p>서버를 선택하면 DB별 용량을 확인할 수 있습니다</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- ============================================================
+         개선 4: 최근 작업 이력 개선
+         - Alpine.js 기반 필터 + SVG 아이콘 + 상대 시간
+         - HTMX partials HTML을 fetch로 받아 파싱
+         ============================================================ -->
+    <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100" x-data="activityPanel()" x-init="init()">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                {{ svg_icon('clipboard-document-list', 'w-5 h-5 text-primary-600') }}
+                최근 작업 이력
+            </h3>
+            <!-- 작업 유형 필터 -->
+            <div class="flex items-center gap-1" x-show="!loading && activities.length > 0" x-cloak>
+                <button @click="filterType = ''"
+                        :class="filterType === '' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                        class="px-2 py-1 text-xs font-medium rounded-full transition">
+                    전체 <span class="opacity-70" x-text="'(' + activities.length + ')'"></span>
+                </button>
+                <template x-for="ft in availableFilters" :key="ft.type">
+                    <button @click="filterType = ft.type"
+                            :class="filterType === ft.type ? ft.activeClass : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+                            class="px-2 py-1 text-xs font-medium rounded-full transition">
+                        <span x-text="ft.label"></span>
+                        <span class="opacity-70" x-text="'(' + ft.count + ')'"></span>
+                    </button>
+                </template>
+            </div>
+        </div>
+        
+        <!-- 로딩 -->
+        <div x-show="loading" class="space-y-3">
+            {% for i in range(3) %}
+            <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg animate-pulse">
+                <div class="w-8 h-8 bg-gray-200 rounded-full"></div>
+                <div class="flex-1">
+                    <div class="h-4 w-32 bg-gray-200 rounded mb-2"></div>
+                    <div class="h-3 w-48 bg-gray-200 rounded"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- 활동 목록 -->
+        <div x-show="!loading" x-cloak class="max-h-96 overflow-y-auto">
+            <div class="space-y-3">
+                <template x-for="act in filteredActivities" :key="act.id">
+                    <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                             :class="act.status === 'success' ? 'bg-green-100 text-green-600' : 
+                                     (act.status === 'failed' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600')">
+                            <!-- CREATE: plus-circle -->
+                            <svg x-show="act.action === 'CREATE'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <!-- UPDATE: pencil-square -->
+                            <svg x-show="act.action === 'UPDATE'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
+                            </svg>
+                            <!-- DELETE: trash -->
+                            <svg x-show="act.action === 'DELETE'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                            </svg>
+                            <!-- BACKUP: arrow-down-tray -->
+                            <svg x-show="act.action === 'BACKUP'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                            </svg>
+                            <!-- 기타: clipboard-list -->
+                            <svg x-show="act.action !== 'CREATE' && act.action !== 'UPDATE' && act.action !== 'DELETE' && act.action !== 'BACKUP'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2">
+                                <span class="font-medium text-gray-800" x-text="act.targetName"></span>
+                                <span x-show="act.status === 'success'"
+                                      class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">성공</span>
+                                <span x-show="act.status === 'failed'"
+                                      class="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-xs">실패</span>
+                            </div>
+                            <p class="text-sm text-gray-500 truncate" x-text="act.message"></p>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs text-gray-400" x-text="act.relativeTime"></span>
+                                <span class="text-xs text-gray-300">&middot;</span>
+                                <span class="text-xs text-gray-400" x-text="act.dateTime"></span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            
+            <!-- 필터 결과 없음 -->
+            <div x-show="filteredActivities.length === 0 && activities.length > 0" class="text-center py-8 text-gray-400">
+                <p>해당 유형의 작업 이력이 없습니다</p>
+            </div>
+            
+            <!-- 데이터 없음 -->
+            <div x-show="activities.length === 0 && !loading" class="text-center py-8 text-gray-500">
+                <div class="w-12 h-12 mx-auto bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-3">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                    </svg>
+                </div>
+                <p class="mt-2">최근 활동이 없습니다</p>
+            </div>
+        </div>
+        
+        <!-- 더보기 -->
+        <div class="mt-3 pt-3 border-t border-gray-100 text-center">
+            <a href="/activity-logs" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                전체 활동 로그 보기 →
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================
+     개선 1, 5: 서버별 현황 (전체 모드 - 비동기 로드)
+     - 성능 이슈 해결: get_all_server_summaries() 대신 비동기 로드
+     - 연결 상태 실시간 체크
+     ============================================================ -->
+{% if not server_id %}
+<div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mt-6" x-data="serverOverview()" x-init="init()">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+            {{ svg_icon('server', 'w-5 h-5 text-primary-600') }}
+            서버별 현황
+        </h3>
+        <div class="flex items-center gap-2">
+            <button @click="refreshAll()"
+                    :disabled="refreshing"
+                    class="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center gap-1.5 disabled:opacity-50">
+                <svg :class="refreshing ? 'animate-spin' : ''" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                <span x-text="refreshing ? '갱신 중...' : '상태 갱신'"></span>
+            </button>
+        </div>
+    </div>
+    
+    <!-- 로딩 상태 -->
+    <div x-show="loading" class="space-y-3 animate-pulse">
+        {% for i in range(3) %}
+        <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+            <div class="w-10 h-10 bg-gray-200 rounded-lg"></div>
+            <div class="flex-1">
+                <div class="h-4 w-32 bg-gray-200 rounded mb-1"></div>
+                <div class="h-3 w-24 bg-gray-200 rounded"></div>
+            </div>
+            <div class="h-6 w-16 bg-gray-200 rounded-full"></div>
+            <div class="h-4 w-8 bg-gray-200 rounded"></div>
+            <div class="h-4 w-16 bg-gray-200 rounded"></div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- 서버 테이블 -->
+    <div x-show="!loading" class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="text-left text-sm text-gray-500 border-b">
+                    <th class="pb-3 font-medium">서버</th>
+                    <th class="pb-3 font-medium">상태</th>
+                    <th class="pb-3 font-medium">DB 종류</th>
+                    <th class="pb-3 font-medium">DB 수</th>
+                    <th class="pb-3 font-medium">경고/오류</th>
+                    <th class="pb-3 font-medium"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                <template x-for="server in servers" :key="server.id">
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="py-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-800" x-text="server.server_name"></div>
+                                    <div class="text-sm text-gray-500" x-text="server.host + ':' + server.port"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="py-3">
+                            <template x-if="connectionStatus[server.id] === 'checking'">
+                                <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-sm flex items-center gap-1 w-fit">
+                                    <span class="w-2 h-2 rounded-full bg-gray-400 animate-pulse"></span>
+                                    확인 중
+                                </span>
+                            </template>
+                            <template x-if="connectionStatus[server.id] === 'online'">
+                                <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-sm flex items-center gap-1 w-fit">
+                                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
+                                    정상
+                                </span>
+                            </template>
+                            <template x-if="connectionStatus[server.id] === 'offline'">
+                                <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-sm flex items-center gap-1 w-fit">
+                                    <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                                    오프라인
+                                </span>
+                            </template>
+                            <template x-if="!connectionStatus[server.id]">
+                                <span class="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-sm w-fit">미확인</span>
+                            </template>
+                        </td>
+                        <td class="py-3">
+                            <span class="px-2 py-0.5 text-xs font-medium rounded-full"
+                                  :class="{
+                                      'bg-blue-100 text-blue-700': server.db_type === 'mssql',
+                                      'bg-indigo-100 text-indigo-700': server.db_type === 'postgresql',
+                                      'bg-orange-100 text-orange-700': server.db_type === 'mysql',
+                                      'bg-red-100 text-red-700': server.db_type === 'oracle'
+                                  }"
+                                  x-text="(server.db_type || 'db').toUpperCase()">
+                            </span>
+                        </td>
+                        <td class="py-3">
+                            <span class="font-medium" x-text="server.db_count || '-'"></span>
+                        </td>
+                        <td class="py-3">
+                            <template x-if="server.warning_count > 0 || server.error_count > 0">
+                                <div class="flex items-center gap-2">
+                                    <template x-if="server.warning_count > 0">
+                                        <span class="text-amber-600 flex items-center gap-0.5 text-sm">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                                            </svg>
+                                            <span x-text="server.warning_count"></span>
+                                        </span>
+                                    </template>
+                                    <template x-if="server.error_count > 0">
+                                        <span class="text-red-600 flex items-center gap-0.5 text-sm">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            <span x-text="server.error_count"></span>
+                                        </span>
+                                    </template>
+                                </div>
+                            </template>
+                            <template x-if="!server.warning_count && !server.error_count">
+                                <span class="text-gray-400">-</span>
+                            </template>
+                        </td>
+                        <td class="py-3">
+                            <a :href="'/dashboard/' + server.id" 
+                               class="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center gap-1">
+                                상세
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </a>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+        
+        <!-- 서버 없음 -->
+        <template x-if="!loading && servers.length === 0">
+            <div class="text-center py-8 text-gray-500">
+                <p>등록된 서버가 없습니다.</p>
+                <a href="/servers" class="text-primary-600 hover:text-primary-700 text-sm font-medium mt-2 inline-block">
+                    서버 관리로 이동 →
+                </a>
+            </div>
+        </template>
+    </div>
+    
+    <!-- 서버 통계 요약 -->
+    <div x-show="!loading && servers.length > 0" class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-6 text-sm text-gray-500">
+        <span>전체 <span class="font-medium text-gray-700" x-text="servers.length"></span>개 서버</span>
+        <span class="flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+            온라인 <span class="font-medium text-gray-700" x-text="onlineCount"></span>
+        </span>
+        <span class="flex items-center gap-1" x-show="offlineCount > 0">
+            <span class="w-2 h-2 rounded-full bg-red-500"></span>
+            오프라인 <span class="font-medium text-red-600" x-text="offlineCount"></span>
+        </span>
+    </div>
+</div>
+
+<script>
+function serverOverview() {
+    return {
+        loading: true,
+        refreshing: false,
+        servers: [],
+        connectionStatus: {},
+        
+        get onlineCount() {
+            return this.servers.filter(s => this.connectionStatus[s.id] === 'online').length;
+        },
+        get offlineCount() {
+            return this.servers.filter(s => this.connectionStatus[s.id] === 'offline').length;
+        },
+        
+        async init() {
+            await this.loadServers();
+            this.loading = false;
+            this.checkAllConnections();
+        },
+        
+        async loadServers() {
+            try {
+                const res = await fetch('/api/servers?fast=true');
+                if (res.ok) {
+                    this.servers = await res.json();
+                }
+            } catch (e) {
+                console.error('서버 목록 로드 실패:', e);
+            }
+        },
+        
+        async checkAllConnections() {
+            const promises = this.servers.map(s => this.checkConnection(s.id));
+            await Promise.allSettled(promises);
+        },
+        
+        async checkConnection(serverId) {
+            this.connectionStatus[serverId] = 'checking';
+            try {
+                const res = await fetch(`/api/servers/${serverId}/test`, { method: 'POST' });
+                const result = await res.json();
+                this.connectionStatus[serverId] = result.success ? 'online' : 'offline';
+            } catch (e) {
+                this.connectionStatus[serverId] = 'offline';
+            }
+        },
+        
+        async refreshAll() {
+            this.refreshing = true;
+            await this.loadServers();
+            await this.checkAllConnections();
+            this.refreshing = false;
+        }
+    }
+}
+</script>
+{% endif %}
+
+<!-- ============================================================
+     Alpine.js 컴포넌트: DB별 용량 + 최근 작업 이력
+     ============================================================ -->
+<script>
+function capacityChart() {
+    return {
+        loading: true,
+        databases: [],
+        searchQuery: '',
+        sortBy: 'size_desc',
+        
+        get filteredDatabases() {
+            var list = this.databases.slice();
+            
+            // 검색
+            if (this.searchQuery) {
+                var q = this.searchQuery.toLowerCase();
+                list = list.filter(function(db) { return db.name.toLowerCase().indexOf(q) !== -1; });
+            }
+            
+            // 정렬
+            var sortBy = this.sortBy;
+            if (sortBy === 'size_desc') list.sort(function(a, b) { return b.sizeMb - a.sizeMb; });
+            else if (sortBy === 'size_asc') list.sort(function(a, b) { return a.sizeMb - b.sizeMb; });
+            else if (sortBy === 'name_asc') list.sort(function(a, b) { return a.name.localeCompare(b.name); });
+            else if (sortBy === 'name_desc') list.sort(function(a, b) { return b.name.localeCompare(a.name); });
+            
+            // 비율 재계산
+            var maxSize = list.length > 0 ? Math.max.apply(null, list.map(function(d) { return d.sizeMb; })) : 1;
+            return list.map(function(db, idx) {
+                return {
+                    name: db.name,
+                    sizeMb: db.sizeMb,
+                    sizeGb: db.sizeGb,
+                    percent: Math.max(1, Math.round(db.sizeMb / maxSize * 100)),
+                    rank: idx,
+                    diskTotalGb: db.diskTotalGb,
+                    diskFreeGb: db.diskFreeGb,
+                    diskUsedPct: db.diskUsedPct,
+                    dbDiskPct: db.dbDiskPct,
+                    drive: db.drive,
+                    hasDiskInfo: db.diskTotalGb > 0
+                };
+            });
+        },
+        
+        get totalSizeGb() {
+            var target = this.searchQuery ? this.filteredDatabases : this.databases;
+            var totalMb = 0;
+            for (var i = 0; i < target.length; i++) totalMb += target[i].sizeMb;
+            return (totalMb / 1024).toFixed(1) + ' GB';
+        },
+        
+        async init() {
+            var serverId = this._getServerId();
+            if (serverId) {
+                await this.loadData(serverId);
+            } else {
+                this.loading = false;
+            }
+        },
+        
+        _getServerId() {
+            // URL에서 server_id 추출: /dashboard/1 → '1'
+            var match = window.location.pathname.match(/\/dashboard\/(\d+)/);
+            return match ? match[1] : null;
+        },
+        
+        async loadData(serverId) {
+            this.loading = true;
+            try {
+                var res = await fetch('/partials/dashboard/capacity-chart/' + serverId + '?limit=200');
+                if (!res.ok) throw new Error('fail');
+                var html = await res.text();
+                this.databases = this.parseHtml(html);
+            } catch (e) {
+                console.error('DB 용량 로드 실패:', e);
+                this.databases = [];
+            }
+            this.loading = false;
+        },
+        
+        parseHtml(html) {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(html, 'text/html');
+            var groups = doc.querySelectorAll('.group');
+            var result = [];
+            for (var i = 0; i < groups.length; i++) {
+                var nameEl = groups[i].querySelector('.truncate');
+                // GB 값: data-size-gb 속성 우선, 없으면 "GB" 포함된 텍스트
+                var sizeAttrEl = groups[i].querySelector('[data-size-gb]');
+                var sizeText = '';
+                var sizeGb = 0;
+                if (sizeAttrEl) {
+                    sizeGb = parseFloat(sizeAttrEl.getAttribute('data-size-gb')) || 0;
+                    sizeText = sizeGb.toFixed(1) + ' GB';
+                } else {
+                    var sizeEls = groups[i].querySelectorAll('.text-sm.text-gray-500');
+                    for (var j = 0; j < sizeEls.length; j++) {
+                        var t = sizeEls[j].textContent.trim();
+                        if (t.indexOf('GB') !== -1) {
+                            sizeText = t;
+                            sizeGb = parseFloat(t) || 0;
+                            break;
+                        }
+                    }
+                }
+                if (nameEl && (sizeText || sizeGb > 0)) {
+                    var name = nameEl.textContent.trim();
+                    var sizeGb = parseFloat(sizeText) || 0;
+                    
+                    // 디스크 사용률 data 속성 읽기
+                    var diskTotalGb = parseFloat(groups[i].getAttribute('data-disk-total-gb')) || 0;
+                    var diskFreeGb = parseFloat(groups[i].getAttribute('data-disk-free-gb')) || 0;
+                    var diskUsedPct = parseFloat(groups[i].getAttribute('data-disk-used-pct')) || 0;
+                    var dbDiskPct = parseFloat(groups[i].getAttribute('data-db-disk-pct')) || 0;
+                    var drive = groups[i].getAttribute('data-drive') || '';
+                    
+                    result.push({
+                        name: name,
+                        sizeMb: sizeGb * 1024,
+                        sizeGb: sizeText,
+                        percent: 0,
+                        diskTotalGb: diskTotalGb,
+                        diskFreeGb: diskFreeGb,
+                        diskUsedPct: diskUsedPct,
+                        dbDiskPct: dbDiskPct,
+                        drive: drive
+                    });
+                }
+            }
+            return result;
+        }
+    }
+}
+
+function activityPanel() {
+    return {
+        loading: true,
+        activities: [],
+        filterType: '',
+        
+        get filteredActivities() {
+            if (!this.filterType) return this.activities;
+            var ft = this.filterType;
+            return this.activities.filter(function(a) { return a.action === ft; });
+        },
+        
+        get availableFilters() {
+            var self = this;
+            var types = [
+                { type: 'CREATE', label: '생성', activeClass: 'bg-green-600 text-white' },
+                { type: 'UPDATE', label: '수정', activeClass: 'bg-blue-600 text-white' },
+                { type: 'DELETE', label: '삭제', activeClass: 'bg-red-600 text-white' },
+                { type: 'BACKUP', label: '백업', activeClass: 'bg-purple-600 text-white' }
+            ];
+            return types.map(function(t) {
+                return {
+                    type: t.type,
+                    label: t.label,
+                    activeClass: t.activeClass,
+                    count: self.activities.filter(function(a) { return a.action === t.type; }).length
+                };
+            }).filter(function(t) { return t.count > 0; });
+        },
+        
+        async init() {
+            await this.loadData();
+        },
+        
+        async loadData() {
+            this.loading = true;
+            try {
+                var serverId = window.location.pathname.match(/\/dashboard\/(\d+)/);
+                var params = serverId ? 'server_id=' + serverId[1] + '&' : '';
+                var url = '/partials/dashboard/activities?' + params + 'limit=30';
+                var res = await fetch(url);
+                if (!res.ok) throw new Error('fail');
+                var html = await res.text();
+                this.activities = this.parseHtml(html);
+            } catch (e) {
+                console.error('활동 이력 로드 실패:', e);
+                this.activities = [];
+            }
+            this.loading = false;
+        },
+        
+        parseHtml(html) {
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(html, 'text/html');
+            var items = doc.querySelectorAll('[data-action]');
+            var result = [];
+            var self = this;
+            
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                var action = item.getAttribute('data-action') || '';
+                var status = item.getAttribute('data-status') || '';
+                
+                var nameEl = item.querySelector('.font-medium.text-gray-800');
+                var targetName = nameEl ? nameEl.textContent.trim() : '';
+                
+                var msgEl = item.querySelector('.text-sm.text-gray-500');
+                var message = msgEl ? msgEl.textContent.trim() : '';
+                
+                var dateEl = item.querySelector('.text-xs.text-gray-400');
+                var dateTime = dateEl ? dateEl.textContent.trim() : '';
+                
+                result.push({
+                    id: i,
+                    action: action,
+                    status: status,
+                    targetName: targetName,
+                    message: message,
+                    dateTime: dateTime,
+                    relativeTime: self.calcRelativeTime(dateTime)
+                });
+            }
+            return result;
+        },
+        
+        calcRelativeTime(dateStr) {
+            if (!dateStr) return '';
+            var now = new Date();
+            var parts = dateStr.match(/(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+            if (!parts) return dateStr;
+            
+            var month = parseInt(parts[1]) - 1;
+            var day = parseInt(parts[2]);
+            var hour = parseInt(parts[3]);
+            var minute = parseInt(parts[4]);
+            var target = new Date(now.getFullYear(), month, day, hour, minute);
+            if (target > now) target.setFullYear(target.getFullYear() - 1);
+            
+            var diffMs = now - target;
+            var diffMin = Math.floor(diffMs / 60000);
+            var diffHour = Math.floor(diffMs / 3600000);
+            var diffDay = Math.floor(diffMs / 86400000);
+            
+            if (diffMin < 1) return '방금 전';
+            if (diffMin < 60) return diffMin + '분 전';
+            if (diffHour < 24) return diffHour + '시간 전';
+            if (diffDay < 7) return diffDay + '일 전';
+            if (diffDay < 30) return Math.floor(diffDay / 7) + '주 전';
+            return Math.floor(diffDay / 30) + '개월 전';
+        }
+    }
+}
+</script>

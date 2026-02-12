@@ -1,0 +1,144 @@
+{# 
+전체 알림 페이지
+#}
+{% extends "base.html" %}
+
+{% block title %}전체 알림 - 법인 DB 관리 시스템{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- 헤더 -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+                <svg class="w-6 h-6 text-primary-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">전체 알림</h1>
+                <p class="text-sm text-gray-500">
+                    {% if unread_count > 0 %}
+                    읽지 않은 알림 {{ unread_count }}개
+                    {% else %}
+                    모든 알림을 확인했습니다
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        
+        {% if notifications and unread_count > 0 %}
+        <button hx-post="/notifications/read-all"
+                hx-target="#notification-list"
+                hx-swap="outerHTML"
+                class="px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-800 hover:bg-primary-50 rounded-lg transition-colors">
+            모두 읽음 처리
+        </button>
+        {% endif %}
+    </div>
+    
+    <!-- 알림 목록 -->
+    <div id="notification-list" class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {% if notifications %}
+            {% for noti in notifications %}
+            <div class="px-6 py-4 hover:bg-gray-50 border-b border-gray-100 transition-colors {{ 'bg-blue-50/30' if not noti.is_read else '' }}"
+                 hx-post="/notifications/{{ noti.id }}/read"
+                 hx-swap="none"
+                 hx-trigger="click once"
+                 {% if noti.link %}onclick="window.location.href='{{ noti.link }}'"{% endif %}
+                 style="cursor: pointer;">
+                <div class="flex items-start gap-4">
+                    <!-- 아이콘 -->
+                    <div class="flex-shrink-0">
+                        {% if noti.type == 'error' %}
+                        <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="15" y1="9" x2="9" y2="15"/>
+                                <line x1="9" y1="9" x2="15" y2="15"/>
+                            </svg>
+                        </div>
+                        {% elif noti.type == 'warning' %}
+                        <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                <line x1="12" y1="9" x2="12" y2="13"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17"/>
+                            </svg>
+                        </div>
+                        {% elif noti.type == 'success' %}
+                        <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                        </div>
+                        {% else %}
+                        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10"/>
+                                <line x1="12" y1="16" x2="12" y2="12"/>
+                                <line x1="12" y1="8" x2="12.01" y2="8"/>
+                            </svg>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 내용 -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                            <p class="text-base text-gray-800 {{ 'font-semibold' if not noti.is_read else 'font-medium' }}">
+                                {{ noti.title }}
+                            </p>
+                            {% if not noti.is_read %}
+                            <span class="w-2 h-2 bg-primary-500 rounded-full"></span>
+                            {% endif %}
+                        </div>
+                        {% if noti.message %}
+                        <p class="text-sm text-gray-600 mt-1">
+                            {{ noti.message }}
+                        </p>
+                        {% endif %}
+                        <div class="flex items-center gap-3 mt-2">
+                            <span class="text-xs text-gray-400">{{ noti.time_ago }}</span>
+                            {% if noti.category %}
+                            <span class="px-2 py-0.5 text-xs rounded-full
+                                {% if noti.category == 'server' %}bg-purple-100 text-purple-700
+                                {% elif noti.category == 'database' %}bg-blue-100 text-blue-700
+                                {% elif noti.category == 'backup' %}bg-indigo-100 text-indigo-700
+                                {% elif noti.category == 'copy' %}bg-cyan-100 text-cyan-700
+                                {% elif noti.category == 'capacity' %}bg-orange-100 text-orange-700
+                                {% elif noti.category == 'security' %}bg-red-100 text-red-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                {{ noti.category }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- 링크 표시 -->
+                    {% if noti.link %}
+                    <div class="flex-shrink-0">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <!-- 알림 없음 -->
+            <div class="px-6 py-16 text-center">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                    </svg>
+                </div>
+                <p class="text-gray-500">알림이 없습니다</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

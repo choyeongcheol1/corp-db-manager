@@ -1,0 +1,36 @@
+<!-- partials/sync/table_list.html -->
+<!-- HTMX 파셜: 소스 DB 테이블 목록 -->
+<div id="sync-table-list">
+    <div class="flex items-center justify-between mb-3">
+        <p class="text-sm text-gray-600">
+            총 <strong class="text-sky-700">{{ total }}</strong>개 테이블
+        </p>
+    </div>
+    
+    {% if tables %}
+    <div class="border border-gray-200 rounded-xl overflow-hidden">
+        <div class="max-h-[400px] overflow-y-auto divide-y divide-gray-100">
+            {% for tbl in tables %}
+            <label class="flex items-center px-4 py-2.5 hover:bg-sky-50/50 cursor-pointer transition-colors">
+                <input type="checkbox" name="sync_tables" 
+                       value="{{ tbl.schema_name }}.{{ tbl.table_name }}"
+                       class="rounded border-gray-300 text-sky-600 focus:ring-sky-500">
+                <span class="ml-3 text-sm font-mono text-gray-900">
+                    {{ tbl.schema_name }}.{{ tbl.table_name }}
+                </span>
+                <span class="ml-auto text-xs text-gray-500 tabular-nums">
+                    {{ "{:,}".format(tbl.row_count|int) }} 건
+                </span>
+                <span class="ml-4 text-xs text-gray-400 tabular-nums w-16 text-right">
+                    {{ tbl.size_mb }} MB
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-8 text-gray-500">
+        <p>테이블이 없습니다.</p>
+    </div>
+    {% endif %}
+</div>

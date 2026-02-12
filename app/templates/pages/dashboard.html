@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import svg_icon %}
+
+{% block title %}대시보드 - DB 관리 시스템{% endblock %}
+
+{% block server_selector %}
+{% include "components/server_dropdown.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 페이지 헤더 -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+                {{ svg_icon('chart-bar', 'w-6 h-6') }}
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">
+                    모니터링
+                    {% if current_server %}
+                    <span class="text-lg font-normal text-gray-500">- {{ current_server.server_name }}</span>
+                    {% endif %}
+                </h1>
+                <p class="text-gray-500 mt-1">
+                    {% if current_server %}
+                    {{ current_server.host }}:{{ current_server.port }}
+                    {% else %}
+                    전체 서버 통합 현황
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2">
+            <!-- 새로고침 버튼 -->
+            <button onclick="location.reload()"
+                    class="px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex items-center gap-1.5">
+                {{ svg_icon('arrow-path', 'w-4 h-4') }}
+                <span class="text-sm">새로고침</span>
+            </button>
+            
+            <a href="/corps/create{% if server_id %}/{{ server_id }}{% endif %}" 
+               class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center gap-2">
+                {{ svg_icon('plus-circle', 'w-5 h-5') }}
+                신규 법인 생성
+            </a>
+        </div>
+    </div>
+    
+    <!-- 탭 메뉴 -->
+    {% if server_id %}
+    <div class="border-b border-gray-200" x-data="{ activeTab: 'overview' }">
+        <nav class="flex gap-4">
+            <button @click="activeTab = 'overview'"
+                    :class="activeTab === 'overview' 
+                        ? 'border-b-2 border-primary-600 text-primary-600' 
+                        : 'text-gray-500 hover:text-gray-700'"
+                    class="px-4 py-3 text-sm font-medium transition flex items-center gap-2">
+                {{ svg_icon('chart-bar', 'w-4 h-4') }}
+                현황
+            </button>
+            <button @click="activeTab = 'server'; $refs.serverCheck.dispatchEvent(new Event('loadHealth'))"
+                    :class="activeTab === 'server' 
+                        ? 'border-b-2 border-primary-600 text-primary-600' 
+                        : 'text-gray-500 hover:text-gray-700'"
+                    class="px-4 py-3 text-sm font-medium transition flex items-center gap-2">
+                {{ svg_icon('server', 'w-4 h-4') }}
+                서버 점검
+            </button>
+            <button @click="activeTab = 'database'; $refs.dbCheck.dispatchEvent(new Event('loadHealth'))"
+                    :class="activeTab === 'database' 
+                        ? 'border-b-2 border-primary-600 text-primary-600' 
+                        : 'text-gray-500 hover:text-gray-700'"
+                    class="px-4 py-3 text-sm font-medium transition flex items-center gap-2">
+                {{ svg_icon('circle-stack', 'w-4 h-4') }}
+                DB 점검
+            </button>
+        </nav>
+        
+        <!-- 탭 콘텐츠 -->
+        <div class="py-6">
+            <!-- 현황 탭 -->
+            <div x-show="activeTab === 'overview'" x-cloak>
+                {% include "pages/dashboard_overview.html" %}
+            </div>
+            
+            <!-- 서버 점검 탭 -->
+            <div x-show="activeTab === 'server'" x-cloak>
+                <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            {{ svg_icon('server', 'w-5 h-5 text-primary-600') }}
+                            서버 상태 점검
+                        </h3>
+                        <button hx-get="/partials/health/server/{{ server_id }}"
+                                hx-target="#server-check-content"
+                                hx-swap="innerHTML"
+                                hx-indicator="#server-loading"
+                                class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition text-sm flex items-center gap-2">
+                            <span id="server-loading" class="htmx-indicator">
+                                <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </span>
+                            {{ svg_icon('arrow-path', 'w-4 h-4') }}
+                            점검 실행
+                        </button>
+                    </div>
+                    <div id="server-check-content"
+                         x-ref="serverCheck"
+                         hx-get="/partials/health/server/{{ server_id }}"
+                         hx-trigger="loadHealth"
+                         hx-swap="innerHTML">
+                        <div class="text-center py-12 text-gray-500">
+                            <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-4">
+                                {{ svg_icon('server', 'w-8 h-8') }}
+                            </div>
+                            <p>점검 실행 버튼을 클릭하여 서버 상태를 확인하세요.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- DB 점검 탭 -->
+            <div x-show="activeTab === 'database'" x-cloak>
+                <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                            {{ svg_icon('circle-stack', 'w-5 h-5 text-primary-600') }}
+                            DB 상태 점검
+                        </h3>
+                        <button hx-get="/partials/health/databases/{{ server_id }}"
+                                hx-target="#db-check-content"
+                                hx-swap="innerHTML"
+                                hx-indicator="#db-loading"
+                                class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition text-sm flex items-center gap-2">
+                            <span id="db-loading" class="htmx-indicator">
+                                <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </span>
+                            {{ svg_icon('arrow-path', 'w-4 h-4') }}
+                            점검 실행
+                        </button>
+                    </div>
+                    <div id="db-check-content"
+                         x-ref="dbCheck"
+                         hx-get="/partials/health/databases/{{ server_id }}"
+                         hx-trigger="loadHealth"
+                         hx-swap="innerHTML">
+                        <div class="text-center py-12 text-gray-500">
+                            <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-4">
+                                {{ svg_icon('circle-stack', 'w-8 h-8') }}
+                            </div>
+                            <p>점검 실행 버튼을 클릭하여 DB 상태를 확인하세요.</p>
+                            <p class="text-sm mt-2 text-amber-600 flex items-center justify-center gap-1">
+                                {{ svg_icon('exclamation-triangle', 'w-4 h-4') }}
+                                DB 수가 많으면 시간이 오래 걸릴 수 있습니다.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- 서버 미선택 시 -->
+    {% include "pages/dashboard_overview.html" %}
+    {% endif %}
+</div>
+{% endblock %}

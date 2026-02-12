@@ -1,0 +1,98 @@
+<!-- 법인 목록 테이블 tbody (Phase 1 개선) -->
+{% if corps %}
+{% for item in corps %}
+<tr class="group border-b border-gray-100 hover:bg-primary-50/50 transition-colors cursor-pointer"
+    data-status="{{ item.corp.status }}"
+    hx-get="/partials/corps/detail/{{ item.corp.server_id }}/{{ item.corp.db_name }}"
+    hx-target="#detail-panel"
+    hx-swap="innerHTML"
+    hx-on::after-request="openDetailPanel()">
+    <!-- 법인코드 -->
+    <td class="px-5 py-3.5 whitespace-nowrap">
+        <span class="font-mono font-semibold text-primary-700 text-sm">{{ item.corp.corp_code }}</span>
+    </td>
+    <!-- 법인명 -->
+    <td class="px-5 py-3.5">
+        <span class="font-medium text-gray-800 text-sm">{{ item.corp.corp_name }}</span>
+    </td>
+    {% if show_server_column %}
+    <td class="px-5 py-3.5 text-gray-600 text-sm whitespace-nowrap">{{ item.server_name }}</td>
+    {% endif %}
+    <!-- DB명 (클릭 시 복사) -->
+    <td class="px-5 py-3.5 whitespace-nowrap">
+        <button onclick="copyDbName('{{ item.corp.db_name }}', event)"
+                class="inline-flex items-center gap-1.5 font-mono text-sm text-gray-600 hover:text-primary-600 transition-colors group/db"
+                title="클릭하여 복사">
+            <span>{{ item.corp.db_name }}</span>
+            <svg class="w-3.5 h-3.5 opacity-0 group-hover/db:opacity-100 transition-opacity flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+        </button>
+    </td>
+    <!-- 상태 배지 -->
+    <td class="px-5 py-3.5 text-center whitespace-nowrap">
+        {% if item.corp.status == 'normal' %}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
+            <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+            정상
+        </span>
+        {% elif item.corp.status == 'warning' %}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-yellow-50 text-yellow-700 rounded-full text-xs font-medium">
+            <span class="w-1.5 h-1.5 bg-yellow-500 rounded-full"></span>
+            경고
+        </span>
+        {% else %}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 rounded-full text-xs font-medium">
+            <span class="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
+            오류
+        </span>
+        {% endif %}
+    </td>
+    <!-- 생성일 -->
+    <td class="px-5 py-3.5 text-gray-500 text-sm whitespace-nowrap">
+        {% if item.corp.created_at %}
+            {% if item.corp.created_at is string %}
+                {{ item.corp.created_at[:10] }}
+            {% else %}
+                {{ item.corp.created_at.strftime('%Y-%m-%d') }}
+            {% endif %}
+        {% else %}
+            -
+        {% endif %}
+    </td>
+    <!-- 바로가기 -->
+    <td class="px-5 py-3.5 text-center whitespace-nowrap" onclick="event.stopPropagation()">
+        <div class="inline-flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <a href="/db/table-init/{{ item.corp.server_id }}"
+               class="p-1.5 rounded-md hover:bg-primary-100 text-gray-400 hover:text-primary-600 transition-colors"
+               title="테이블 초기화">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+                </svg>
+            </a>
+            <a href="/data-copy/{{ item.corp.server_id }}"
+               class="p-1.5 rounded-md hover:bg-primary-100 text-gray-400 hover:text-primary-600 transition-colors"
+               title="데이터 복사">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/>
+                </svg>
+            </a>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+    <td colspan="{% if show_server_column %}7{% else %}6{% endif %}" class="px-6 py-16 text-center">
+        <div class="flex flex-col items-center gap-3 text-gray-400">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+            </svg>
+            <div>
+                <p class="text-gray-500 font-medium">등록된 법인 DB가 없습니다</p>
+                <p class="text-sm text-gray-400 mt-1">신규 법인을 생성하거나 검색 조건을 변경해 보세요</p>
+            </div>
+        </div>
+    </td>
+</tr>
+{% endif %}

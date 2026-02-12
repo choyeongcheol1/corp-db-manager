@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import svg_icon %}
+
+{% block title %}활동 로그 - DB 관리 시스템{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 헤더 -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+                {{ svg_icon('clipboard-document-list', 'w-6 h-6') }}
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">활동 로그</h1>
+                <p class="text-gray-600 mt-1">시스템 활동 기록을 조회합니다</p>
+            </div>
+        </div>
+        <button onclick="exportLogs()" 
+                class="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            {{ svg_icon('arrow-down-tray', 'w-5 h-5') }}
+            CSV 내보내기
+        </button>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl p-4 border border-gray-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="text-sm text-gray-500">총 활동</div>
+                    <div class="text-2xl font-bold text-gray-900" id="statTotal">-</div>
+                </div>
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-gray-600">
+                    {{ svg_icon('clipboard-document-list', 'w-5 h-5') }}
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-gray-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="text-sm text-gray-500">성공</div>
+                    <div class="text-2xl font-bold text-green-600" id="statSuccess">-</div>
+                </div>
+                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-green-600">
+                    {{ svg_icon('check-circle', 'w-5 h-5') }}
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-gray-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="text-sm text-gray-500">실패</div>
+                    <div class="text-2xl font-bold text-red-600" id="statFailure">-</div>
+                </div>
+                <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center text-red-600">
+                    {{ svg_icon('x-circle', 'w-5 h-5') }}
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-gray-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="text-sm text-gray-500">기간</div>
+                    <div class="text-2xl font-bold text-blue-600">7일</div>
+                </div>
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                    {{ svg_icon('clock', 'w-5 h-5') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 필터 -->
+    <div class="bg-white rounded-xl border border-gray-200 p-4">
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">카테고리</label>
+                <select id="filterCategory" onchange="loadLogs()" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">전체</option>
+                    <option value="USER">인증</option>
+                    <option value="CORP">법인</option>
+                    <option value="SERVER">서버</option>
+                    <option value="DOCUMENT">문서</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">상태</label>
+                <select id="filterStatus" onchange="loadLogs()" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="">전체</option>
+                    <option value="success">성공</option>
+                    <option value="failed">실패</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">시작일</label>
+                <input type="date" id="filterStartDate" onchange="loadLogs()" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">종료일</label>
+                <input type="date" id="filterEndDate" onchange="loadLogs()" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">검색</label>
+                <input type="text" id="filterSearch" placeholder="메시지, 대상..." 
+                       onkeyup="debounceSearch()"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+            </div>
+            <div class="flex items-end">
+                <button onclick="resetFilters()" 
+                        class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2">
+                    {{ svg_icon('arrow-path', 'w-4 h-4') }}
+                    초기화
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 로그 테이블 -->
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">일시</th>
+                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">카테고리</th>
+                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">액션</th>
+                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">사용자</th>
+                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">대상</th>
+                        <th class="px-4 py-3 text-left text-sm font-medium text-gray-700">메시지</th>
+                        <th class="px-4 py-3 text-center text-sm font-medium text-gray-700">상태</th>
+                    </tr>
+                </thead>
+                <tbody id="logTableBody" class="divide-y divide-gray-200">
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+                            로딩 중...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 페이지네이션 -->
+        <div class="px-4 py-3 border-t border-gray-200 flex items-center justify-between">
+            <div class="text-sm text-gray-500" id="pageInfo">총 0건</div>
+            <div class="flex gap-2" id="pagination"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 상세 모달 -->
+<div id="detailModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <h3 class="text-lg font-semibold">로그 상세</h3>
+            <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600">
+                {{ svg_icon('x-mark', 'w-6 h-6') }}
+            </button>
+        </div>
+        <div class="p-6 overflow-y-auto" id="detailContent"></div>
+    </div>
+</div>
+
+<script>
+let currentPage = 1;
+let searchTimeout = null;
+
+const categoryLabels = {
+    'USER': '인증',
+    'CORP': '법인',
+    'SERVER': '서버',
+    'DOCUMENT': '문서'
+};
+
+const categoryColors = {
+    'USER': 'bg-purple-100 text-purple-700',
+    'CORP': 'bg-blue-100 text-blue-700',
+    'SERVER': 'bg-green-100 text-green-700',
+    'DOCUMENT': 'bg-yellow-100 text-yellow-700'
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    document.getElementById('filterEndDate').value = today.toISOString().split('T')[0];
+    document.getElementById('filterStartDate').value = weekAgo.toISOString().split('T')[0];
+    
+    loadStats();
+    loadLogs();
+});
+
+async function loadStats() {
+    try {
+        const response = await fetch('/api/logs/stats?days=7');
+        const data = await response.json();
+        
+        document.getElementById('statTotal').textContent = data.total.toLocaleString();
+        document.getElementById('statSuccess').textContent = data.success.toLocaleString();
+        document.getElementById('statFailure').textContent = data.failure.toLocaleString();
+    } catch (error) {
+        console.error('통계 로드 실패:', error);
+    }
+}
+
+async function loadLogs(page = 1) {
+    currentPage = page;
+    
+    const params = new URLSearchParams({ page: page, page_size: 20 });
+    
+    const category = document.getElementById('filterCategory').value;
+    const status = document.getElementById('filterStatus').value;
+    const startDate = document.getElementById('filterStartDate').value;
+    const endDate = document.getElementById('filterEndDate').value;
+    const search = document.getElementById('filterSearch').value;
+    
+    if (category) params.append('category', category);
+    if (status) params.append('status', status);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (search) params.append('search', search);
+    
+    try {
+        const response = await fetch(`/api/logs?${params}`);
+        const data = await response.json();
+        
+        renderLogs(data.items);
+        renderPagination(data);
+    } catch (error) {
+        console.error('로그 로드 실패:', error);
+        document.getElementById('logTableBody').innerHTML = `
+            <tr><td colspan="7" class="px-4 py-8 text-center text-red-500">로그를 불러오는데 실패했습니다</td></tr>
+        `;
+    }
+}
+
+function renderLogs(logs) {
+    const tbody = document.getElementById('logTableBody');
+    
+    if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500">로그가 없습니다</td></tr>`;
+        return;
+    }
+    
+    tbody.innerHTML = logs.map(log => {
+        const createdAt = new Date(log.created_at);
+        const dateStr = createdAt.toLocaleDateString('ko-KR');
+        const timeStr = createdAt.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+        
+        const categoryClass = categoryColors[log.category] || 'bg-gray-100 text-gray-700';
+        const categoryLabel = categoryLabels[log.category] || log.category;
+        
+        const statusBadge = log.status === 'success' 
+            ? '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">성공</span>'
+            : '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">실패</span>';
+        
+        return `
+            <tr class="hover:bg-gray-50 cursor-pointer" onclick='showDetail(${JSON.stringify(log).replace(/'/g, "&#39;")})'>
+                <td class="px-4 py-3 text-sm text-gray-900">
+                    <div>${dateStr}</div>
+                    <div class="text-gray-500">${timeStr}</div>
+                </td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-1 text-xs rounded-full ${categoryClass}">${categoryLabel}</span>
+                </td>
+                <td class="px-4 py-3 text-sm text-gray-900">${log.action}</td>
+                <td class="px-4 py-3 text-sm text-gray-900">${log.username || '-'}</td>
+                <td class="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">${log.target_name || log.target_id || '-'}</td>
+                <td class="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">${log.message || '-'}</td>
+                <td class="px-4 py-3 text-center">${statusBadge}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function renderPagination(data) {
+    document.getElementById('pageInfo').textContent = `총 ${data.total.toLocaleString()}건`;
+    
+    const pagination = document.getElementById('pagination');
+    const totalPages = data.total_pages;
+    
+    let html = '';
+    
+    if (currentPage > 1) {
+        html += `<button onclick="loadLogs(${currentPage - 1})" class="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">이전</button>`;
+    }
+    
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, currentPage + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+        if (i === currentPage) {
+            html += `<button class="px-3 py-1 rounded bg-primary-600 text-white">${i}</button>`;
+        } else {
+            html += `<button onclick="loadLogs(${i})" class="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">${i}</button>`;
+        }
+    }
+    
+    if (currentPage < totalPages) {
+        html += `<button onclick="loadLogs(${currentPage + 1})" class="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100">다음</button>`;
+    }
+    
+    pagination.innerHTML = html;
+}
+
+function debounceSearch() {
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => loadLogs(), 500);
+}
+
+function resetFilters() {
+    document.getElementById('filterCategory').value = '';
+    document.getElementById('filterStatus').value = '';
+    document.getElementById('filterSearch').value = '';
+    
+    const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    
+    document.getElementById('filterEndDate').value = today.toISOString().split('T')[0];
+    document.getElementById('filterStartDate').value = weekAgo.toISOString().split('T')[0];
+    
+    loadLogs();
+}
+
+function showDetail(log) {
+    const content = document.getElementById('detailContent');
+    const createdAt = new Date(log.created_at);
+    const categoryLabel = categoryLabels[log.category] || log.category;
+    
+    let detailsHtml = '';
+    if (log.details) {
+        detailsHtml = `
+            <div class="mt-4">
+                <div class="text-sm font-medium text-gray-700 mb-2">상세 정보</div>
+                <pre class="bg-gray-100 p-3 rounded-lg text-sm overflow-x-auto">${JSON.stringify(log.details, null, 2)}</pre>
+            </div>
+        `;
+    }
+    
+    content.innerHTML = `
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <div class="text-sm text-gray-500">일시</div>
+                    <div class="font-medium">${createdAt.toLocaleString('ko-KR')}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500">상태</div>
+                    <div class="font-medium ${log.status === 'success' ? 'text-green-600' : 'text-red-600'}">${log.status === 'success' ? '성공' : '실패'}</div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <div class="text-sm text-gray-500">카테고리</div>
+                    <div class="font-medium">${categoryLabel}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500">액션</div>
+                    <div class="font-medium">${log.action}</div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <div class="text-sm text-gray-500">사용자</div>
+                    <div class="font-medium">${log.username || '-'}</div>
+                </div>
+                <div>
+                    <div class="text-sm text-gray-500">대상</div>
+                    <div class="font-medium">${log.target_name || log.target_id || '-'}</div>
+                </div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-500">메시지</div>
+                <div class="font-medium">${log.message || '-'}</div>
+            </div>
+            ${detailsHtml}
+        </div>
+    `;
+    
+    document.getElementById('detailModal').classList.remove('hidden');
+}
+
+function closeDetailModal() {
+    document.getElementById('detailModal').classList.add('hidden');
+}
+
+function exportLogs() {
+    const params = new URLSearchParams();
+    
+    const category = document.getElementById('filterCategory').value;
+    const status = document.getElementById('filterStatus').value;
+    const startDate = document.getElementById('filterStartDate').value;
+    const endDate = document.getElementById('filterEndDate').value;
+    const search = document.getElementById('filterSearch').value;
+    
+    if (category) params.append('category', category);
+    if (status) params.append('status', status);
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (search) params.append('search', search);
+    
+    window.location.href = `/api/logs/export?${params}`;
+}
+
+document.getElementById('detailModal').addEventListener('click', function(e) {
+    if (e.target === this) closeDetailModal();
+});
+</script>
+{% endblock %}

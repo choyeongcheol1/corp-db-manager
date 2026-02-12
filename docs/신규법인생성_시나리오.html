@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신규 법인 생성 시나리오 - 실무 기준</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        pre {
+            background-color: #1e293b;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+        }
+        code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+        }
+        .sql-keyword {
+            color: #93c5fd;
+        }
+        .sql-string {
+            color: #86efac;
+        }
+        .sql-comment {
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    <div class="max-w-4xl mx-auto px-6 py-10">
+        
+        <!-- 헤더 -->
+        <header class="mb-10">
+            <h1 class="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                <svg class="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+                신규 법인 생성 시나리오
+            </h1>
+            <p class="text-gray-500 mt-2">실무 기준 가이드</p>
+        </header>
+
+        <!-- 개요 -->
+        <section class="mb-10">
+            <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                <svg class="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
+                </svg>
+                개요
+            </h2>
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <p class="text-gray-700">신규 법인(고객사) 발생 시 해당 법인 전용 데이터베이스를 생성하는 프로세스입니다.</p>
+            </div>
+        </section>
+
+        <!-- 전제 조건 -->
+        <section class="mb-10">
+            <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                <svg class="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                전제 조건
+            </h2>
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">항목</th>
+                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">설명</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">참조 DB</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">기준이 되는 템플릿 DB가 존재해야 함 (예: <code class="bg-gray-100 px-2 py-1 rounded">ACC_STANDARD</code>)</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">법인코드</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">고유한 법인코드가 확정되어야 함 (예: <code class="bg-gray-100 px-2 py-1 rounded">NEWCORP</code>)</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">서버 선택</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">신규 DB를 생성할 타겟 서버가 결정되어야 함</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">권한</td>
+                            <td class="px-6 py-4 text-sm text-gray-700"><code class="bg-gray-100 px-2 py-1 rounded">admin</code> 또는 <code class="bg-gray-100 px-2 py-1 rounded">operator</code> 역할 필요</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 시나리오 상세 -->
+        <section class="mb-10">
+            <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                <svg class="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.231 13.481L15 17.25m-4.5-15H5.625c-.621 0-1.125.504-1.125 1.125v16.5c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Zm3.75 11.625a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+                </svg>
+                시나리오 상세
+            </h2>
+
+            <!-- 1단계 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                    <span class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                    법인 정보 입력
+                </h3>
+                <p class="text-sm text-gray-500 mb-4">
+                    <strong>화면:</strong> <code class="bg-gray-100 px-2 py-1 rounded">/corps/create</code> 또는 <code class="bg-gray-100 px-2 py-1 rounded">/corps/create/{server_id}</code>
+                </p>
+
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">1. 소스 서버/DB 선택</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li>소스 서버: 참조할 템플릿 DB가 있는 서버 선택</li>
+                            <li>소스 DB: 복제 기준이 될 DB 선택 (예: <code class="bg-white px-1 rounded">ACC_STANDARD</code>)</li>
+                            <li>소스 DB의 스키마(테이블 구조, 프로시저 등)를 복제함</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">2. 타겟 서버 선택</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li>신규 DB를 생성할 서버 선택</li>
+                            <li>소스 서버와 동일하거나 다른 서버 선택 가능</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">3. 법인 정보 입력</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li><strong>법인코드:</strong> 고유 식별자 (예: <code class="bg-white px-1 rounded">NEWCORP</code>)<br>
+                                <span class="text-gray-500 ml-4">→ DB명으로 사용됨: <code class="bg-white px-1 rounded">ACC_{법인코드}</code> → <code class="bg-white px-1 rounded">ACC_NEWCORP</code></span>
+                            </li>
+                            <li><strong>법인명:</strong> 회사명 (예: <code class="bg-white px-1 rounded">신규법인 주식회사</code>)</li>
+                            <li><strong>사업자번호:</strong> 10자리 (예: <code class="bg-white px-1 rounded">123-45-67890</code>) - 선택사항</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">4. 다음 단계 버튼 클릭</h4>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2단계 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                    <span class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
+                    SQL 미리보기 및 실행
+                </h3>
+                <p class="text-sm text-gray-500 mb-4">
+                    <strong>화면:</strong> <code class="bg-gray-100 px-2 py-1 rounded">/corps/create/preview</code>
+                </p>
+
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">1. 생성될 SQL 확인</h4>
+                        <p class="text-sm text-gray-700 mb-3">시스템이 자동 생성한 SQL 스크립트 표시:</p>
+                        <pre><code><span class="sql-comment">-- 1. 데이터베이스 생성</span>
+<span class="sql-keyword">CREATE DATABASE</span> [ACC_NEWCORP]
+<span class="sql-keyword">ON PRIMARY</span> (
+    <span class="sql-keyword">NAME</span> = N<span class="sql-string">'ACC_NEWCORP'</span>,
+    <span class="sql-keyword">FILENAME</span> = N<span class="sql-string">'D:\MSSQL\Data\ACC_NEWCORP.mdf'</span>,
+    <span class="sql-keyword">SIZE</span> = 100MB,
+    <span class="sql-keyword">FILEGROWTH</span> = 64MB
+)
+<span class="sql-keyword">LOG ON</span> (
+    <span class="sql-keyword">NAME</span> = N<span class="sql-string">'ACC_NEWCORP_log'</span>,
+    <span class="sql-keyword">FILENAME</span> = N<span class="sql-string">'D:\MSSQL\Log\ACC_NEWCORP_log.ldf'</span>,
+    <span class="sql-keyword">SIZE</span> = 50MB,
+    <span class="sql-keyword">FILEGROWTH</span> = 64MB
+)
+
+<span class="sql-comment">-- 2. 로그인 계정 생성</span>
+<span class="sql-keyword">CREATE LOGIN</span> [ACC_NEWCORP] <span class="sql-keyword">WITH PASSWORD</span> = <span class="sql-string">'DB@1234'</span>
+
+<span class="sql-comment">-- 3. DB 사용자 생성 및 권한 부여</span>
+<span class="sql-keyword">USE</span> [ACC_NEWCORP]
+<span class="sql-keyword">CREATE USER</span> [ACC_NEWCORP] <span class="sql-keyword">FOR LOGIN</span> [ACC_NEWCORP]
+<span class="sql-keyword">ALTER ROLE</span> [db_owner] <span class="sql-keyword">ADD MEMBER</span> [ACC_NEWCORP]
+
+<span class="sql-comment">-- 4. 테이블 생성 (소스 DB 스키마 복제)</span>
+<span class="sql-comment">-- (테이블 구조, 인덱스, 제약조건 등)</span>
+
+<span class="sql-comment">-- 5. 프로시저/함수 생성</span>
+<span class="sql-comment">-- (소스 DB의 프로시저, 함수 복제)</span>
+
+<span class="sql-comment">-- 6. 기초 데이터 입력</span>
+<span class="sql-comment">-- (공통코드, 메뉴, 권한 등 필수 데이터)</span>
+
+<span class="sql-comment">-- 7. 관리자 계정 생성</span>
+<span class="sql-keyword">INSERT INTO</span> TB_USER (USER_ID, USER_NAME, PASSWORD, ...)
+<span class="sql-keyword">VALUES</span> (<span class="sql-string">'admin'</span>, <span class="sql-string">'관리자'</span>, <span class="sql-string">'Admin@1234'</span>, ...)</code></pre>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">2. SQL 수정 (선택사항)</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li>필요 시 SQL 직접 수정 가능</li>
+                            <li>파일 경로, 초기 용량, 비밀번호 등 변경</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">3. SQL 다운로드 (선택사항)</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li><code class="bg-white px-1 rounded">.sql</code> 파일로 다운로드</li>
+                            <li>백업 또는 수동 실행용</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">4. 실행 버튼 클릭</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li>SQL 순차 실행</li>
+                            <li>진행 상황 실시간 표시</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3단계 -->
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                    <span class="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">3</span>
+                    생성 완료
+                </h3>
+                <p class="text-sm text-gray-500 mb-4">
+                    <strong>화면:</strong> 생성 완료 결과 표시
+                </p>
+
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">1. 생성 결과 확인</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li>DB명: <code class="bg-white px-1 rounded">ACC_NEWCORP</code></li>
+                            <li>서버: <code class="bg-white px-1 rounded">운영서버 (192.168.1.100:1433)</code></li>
+                            <li>DB 계정: <code class="bg-white px-1 rounded">ACC_NEWCORP</code> / <code class="bg-white px-1 rounded">DB@1234</code></li>
+                            <li>관리자 계정: <code class="bg-white px-1 rounded">admin</code> / <code class="bg-white px-1 rounded">Admin@1234</code></li>
+                            <li>생성 소요 시간</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">2. 후속 작업 선택</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li><strong>데이터 복사하기:</strong> 참조 DB에서 추가 데이터 복사 필요 시</li>
+                            <li><strong>법인 목록으로:</strong> 생성된 법인 확인</li>
+                            <li><strong>신규 생성하기:</strong> 다른 법인 추가 생성</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 데이터 복사 -->
+        <section class="mb-10">
+            <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                <svg class="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12c0-1.232-.046-2.453-.138-3.662a4.006 4.006 0 0 0-3.7-3.7 48.678 48.678 0 0 0-7.324 0 4.006 4.006 0 0 0-3.7 3.7c-.017.22-.032.441-.046.662M19.5 12l3-3m-3 3-3-3m-12 3c0 1.232.046 2.453.138 3.662a4.006 4.006 0 0 0 3.7 3.7 48.656 48.656 0 0 0 7.324 0 4.006 4.006 0 0 0 3.7-3.7c.017-.22.032-.441.046-.662M4.5 12l3 3m-3-3-3 3" />
+                </svg>
+                데이터 복사 (선택사항)
+            </h2>
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <p class="text-gray-700 mb-4">법인 생성 후 추가 데이터 복사가 필요한 경우:</p>
+                <p class="text-sm text-gray-500 mb-4">
+                    <strong>화면:</strong> <code class="bg-gray-100 px-2 py-1 rounded">/copy-data/{server_id}</code>
+                </p>
+
+                <div class="space-y-4">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">1. 소스/타겟 선택</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li>소스: 참조 DB (예: <code class="bg-white px-1 rounded">ACC_STANDARD</code>)</li>
+                            <li>타겟: 신규 생성된 DB (예: <code class="bg-white px-1 rounded">ACC_NEWCORP</code>)</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">2. 테이블 선택</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li>복사할 테이블 선택 (기초코드, 설정 등)</li>
+                            <li>예: <code class="bg-white px-1 rounded">TB_COM_CODE</code>, <code class="bg-white px-1 rounded">TB_MENU</code>, <code class="bg-white px-1 rounded">TB_ROLE</code>, <code class="bg-white px-1 rounded">TB_AUTH</code></li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">3. 복사 실행</h4>
+                        <ul class="text-sm text-gray-700 space-y-1 ml-4 list-disc">
+                            <li>선택한 테이블 데이터 복사</li>
+                            <li>결과 확인 (성공/실패, 복사 건수)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 생성 후 확인 사항 -->
+        <section class="mb-10">
+            <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                <svg class="w-6 h-6 text-teal-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
+                </svg>
+                생성 후 확인 사항
+            </h2>
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">확인 항목</th>
+                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">방법</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">DB 생성 확인</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">법인 목록에서 확인</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">테이블 확인</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">테이블 현황에서 확인</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">접속 테스트</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">SSMS 등으로 DB 계정 접속 테스트</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">애플리케이션 연동</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">실제 서비스 연결 테스트</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 주의사항 -->
+        <section class="mb-10">
+            <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                <svg class="w-6 h-6 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                주의사항
+            </h2>
+            <div class="bg-white rounded-xl border border-gray-200 p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <h4 class="font-medium text-yellow-800 mb-2">1. 법인코드 중복 불가</h4>
+                        <ul class="text-sm text-yellow-700 space-y-1 ml-4 list-disc">
+                            <li>이미 존재하는 법인코드는 사용 불가</li>
+                            <li>DB명이 중복되면 생성 실패</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <h4 class="font-medium text-yellow-800 mb-2">2. 디스크 용량 확인</h4>
+                        <ul class="text-sm text-yellow-700 space-y-1 ml-4 list-disc">
+                            <li>생성 전 타겟 서버 디스크 여유 공간 확인</li>
+                            <li>최소 500MB 이상 권장</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <h4 class="font-medium text-yellow-800 mb-2">3. SQL 수정 시 주의</h4>
+                        <ul class="text-sm text-yellow-700 space-y-1 ml-4 list-disc">
+                            <li>구문 오류 시 생성 실패</li>
+                            <li>수정 전 원본 SQL 다운로드 권장</li>
+                        </ul>
+                    </div>
+
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <h4 class="font-medium text-yellow-800 mb-2">4. 운영 시간 고려</h4>
+                        <ul class="text-sm text-yellow-700 space-y-1 ml-4 list-disc">
+                            <li>대용량 스키마 복제 시 시간 소요</li>
+                            <li>가급적 업무 시간 외 작업 권장</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 활동 로그 기록 -->
+        <section class="mb-10">
+            <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                <svg class="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 0 0-1.883 2.542l.857 6a2.25 2.25 0 0 0 2.227 1.932H19.05a2.25 2.25 0 0 0 2.227-1.932l.857-6a2.25 2.25 0 0 0-1.883-2.542m-16.5 0V6A2.25 2.25 0 0 1 6 3.75h3.879a1.5 1.5 0 0 1 1.06.44l2.122 2.12a1.5 1.5 0 0 0 1.06.44H18A2.25 2.25 0 0 1 20.25 9v.776" />
+                </svg>
+                활동 로그 기록
+            </h2>
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <p class="px-6 py-4 text-gray-700 border-b border-gray-200">생성 과정에서 자동으로 기록되는 로그:</p>
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">시점</th>
+                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">액션</th>
+                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">내용</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr>
+                            <td class="px-6 py-4 text-sm text-gray-900">생성 시작</td>
+                            <td class="px-6 py-4 text-sm"><code class="bg-gray-100 px-2 py-1 rounded">CREATE_DB</code></td>
+                            <td class="px-6 py-4 text-sm text-gray-700">DB 생성 시작: ACC_NEWCORP</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm text-gray-900">생성 완료</td>
+                            <td class="px-6 py-4 text-sm"><code class="bg-gray-100 px-2 py-1 rounded">CREATE_DB</code></td>
+                            <td class="px-6 py-4 text-sm text-gray-700">DB 생성 완료: ACC_NEWCORP (법인: NEWCORP)</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm text-gray-900">데이터 복사</td>
+                            <td class="px-6 py-4 text-sm"><code class="bg-gray-100 px-2 py-1 rounded">COPY_DATA</code></td>
+                            <td class="px-6 py-4 text-sm text-gray-700">데이터 복사: ACC_STANDARD → ACC_NEWCORP</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 문제 해결 -->
+        <section class="mb-10">
+            <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2 mb-4">
+                <svg class="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" />
+                </svg>
+                문제 해결
+            </h2>
+            <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">문제</th>
+                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">원인</th>
+                            <th class="px-6 py-3 text-left text-sm font-medium text-gray-700">해결 방법</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">DB 생성 실패</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">권한 부족</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">sa 또는 sysadmin 권한 확인</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">파일 경로 오류</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">경로 없음</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">서버의 데이터/로그 경로 확인</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">스키마 복제 실패</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">소스 DB 접근 불가</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">소스 DB 연결 상태 확인</td>
+                        </tr>
+                        <tr>
+                            <td class="px-6 py-4 text-sm font-medium text-gray-900">로그인 생성 실패</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">중복 로그인</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">기존 로그인 삭제 후 재시도</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 푸터 -->
+        <footer class="border-t border-gray-200 pt-6 mt-10">
+            <p class="text-sm text-gray-500">
+                <strong>관련 문서:</strong> 
+                <a href="../README.md" class="text-blue-600 hover:underline">README.md</a> - 시스템 개요
+            </p>
+            <p class="text-sm text-gray-400 mt-2">
+                법인 DB 관리 시스템 v1.2.0 | 최종 수정: 2026-01-31
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

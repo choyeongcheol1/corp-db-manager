@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>법인 DB 관리 시스템 - 제품 설명서 v2.0</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { font-family: 'Noto Sans KR', sans-serif; }
+    code, .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 280px; height: 100vh; overflow-y: auto; scrollbar-width: thin; }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
+    .main-content { margin-left: 280px; }
+    .nav-link { transition: all 0.15s ease; border-left: 3px solid transparent; }
+    .nav-link:hover { background-color: #f1f5f9; border-left-color: #cbd5e1; }
+    .nav-link.active { background-color: #dbeafe; color: #1d4ed8; border-left-color: #1d4ed8; font-weight: 500; }
+    .nav-group-title { font-size: 0.7rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; padding: 1rem 1rem 0.5rem; }
+    section { scroll-margin-top: 24px; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #e2e8f0; }
+    .badge { display: inline-flex; align-items: center; padding: 0.25rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+    .badge-mssql { background: #fef3c7; color: #92400e; }
+    .badge-postgresql { background: #dbeafe; color: #1e40af; }
+    .badge-mysql { background: #d1fae5; color: #065f46; }
+    .badge-oracle { background: #fee2e2; color: #991b1b; }
+    .badge-l1 { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .badge-l2 { background: #fefce8; color: #854d0e; border: 1px solid #fef08a; }
+    .badge-l3 { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .card-hover { transition: all 0.2s ease; }
+    .card-hover:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .code-block { background: #1e293b; color: #e2e8f0; border-radius: 0.5rem; padding: 1rem; overflow-x: auto; font-size: 0.8rem; line-height: 1.6; }
+    .code-block .keyword { color: #c084fc; }
+    .code-block .string { color: #86efac; }
+    .code-block .comment { color: #64748b; }
+    .alert { border-radius: 0.75rem; padding: 1.25rem; display: flex; gap: 0.75rem; }
+    .alert-info { background: #eff6ff; border: 1px solid #bfdbfe; }
+    .alert-warning { background: #fffbeb; border: 1px solid #fcd34d; }
+    .alert-danger { background: #fef2f2; border: 1px solid #fecaca; }
+    .alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; }
+    .mobile-topbar { display: none; }
+    /* SVG Icon Styles */
+    .icon { width: 1em; height: 1em; vertical-align: -0.125em; fill: currentColor; }
+    .icon-sm { width: 1.25rem; height: 1.25rem; }
+    .icon-md { width: 1.5rem; height: 1.5rem; }
+    .icon-lg { width: 2rem; height: 2rem; }
+    @media (max-width: 1024px) {
+      .mobile-topbar { display: block; position: fixed; top: 0; left: 0; right: 0; z-index: 60; background: white; border-bottom: 1px solid #e2e8f0; }
+      .sidebar { position: fixed; width: 100%; max-width: 300px; height: calc(100vh - 56px); top: 56px; left: 0; transform: translateX(-100%); transition: transform 0.25s ease; z-index: 55; border-right: 1px solid #e2e8f0; box-shadow: 4px 0 24px rgba(0,0,0,0.1); }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar-overlay { position: fixed; inset: 0; top: 56px; background: rgba(0,0,0,0.3); z-index: 50; opacity: 0; visibility: hidden; transition: all 0.25s ease; }
+      .sidebar-overlay.open { opacity: 1; visibility: visible; }
+      .main-content { margin-left: 0; padding-top: 72px; }
+      section { scroll-margin-top: 88px; }
+    }
+    @media print {
+      .sidebar, .mobile-topbar, .no-print { display: none !important; }
+      .main-content { margin-left: 0; padding-top: 0 !important; }
+      h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+      table, .rounded-xl { break-inside: avoid; page-break-inside: avoid; }
+      section { break-inside: avoid; page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50">
+  <!-- SVG Symbol Definitions -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+    <!-- Database/File Cabinet -->
+    <symbol id="icon-file-cabinet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="4" y="2" width="16" height="20" rx="2"/>
+      <line x1="8" y1="6" x2="16" y2="6"/>
+      <line x1="8" y1="10" x2="16" y2="10"/>
+      <line x1="8" y1="14" x2="16" y2="14"/>
+      <line x1="8" y1="18" x2="16" y2="18"/>
+      <circle cx="12" cy="6" r="0.5" fill="currentColor"/>
+      <circle cx="12" cy="10" r="0.5" fill="currentColor"/>
+      <circle cx="12" cy="14" r="0.5" fill="currentColor"/>
+      <circle cx="12" cy="18" r="0.5" fill="currentColor"/>
+    </symbol>
+    
+    <!-- Elephant (PostgreSQL) -->
+    <symbol id="icon-elephant" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19.5 9.5c-.6-2.1-2.4-3.5-4.5-3.5-1.5 0-2.8.7-3.7 1.8-.3-.1-.5-.1-.8-.1-2.8 0-5 2.2-5 5 0 .9.2 1.7.6 2.5-.4.5-.6 1.2-.6 1.8 0 1.7 1.3 3 3 3h2v-2H8.5c-.6 0-1-.4-1-1 0-.3.1-.5.3-.7l.7-.7-.4-.9c-.4-.6-.6-1.3-.6-2 0-1.7 1.3-3 3-3 .2 0 .4 0 .6.1l.9.2.5-.8c.6-.9 1.6-1.4 2.7-1.4 1.4 0 2.6.9 3 2.2l.2.8h.8c1.4 0 2.5 1.1 2.5 2.5s-1.1 2.5-2.5 2.5H18v2h1.2c2.5 0 4.5-2 4.5-4.5 0-2.1-1.5-3.9-3.5-4.4l-.7-.1z"/>
+      <circle cx="16" cy="10" r="1"/>
+    </symbol>
+    
+    <!-- Dolphin (MySQL) -->
+    <symbol id="icon-dolphin" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 3c-1.5 0-3 .5-4.2 1.4L6 5.8l1.8 1.4c-1.5 1.2-2.4 3-2.4 5 0 .7.1 1.4.3 2l-2.2 2.3.7.7 2-2.1c1.1 1.6 2.9 2.7 5 2.9v3h2v-3c2.1-.2 3.9-1.3 5-2.9l2 2.1.7-.7-2.2-2.3c.2-.6.3-1.3.3-2 0-2-.9-3.8-2.4-5L18 5.8l-1.8-1.4C15 3.5 13.5 3 12 3zm0 2c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5zm-2 3c-.6 0-1 .4-1 1s.4 1 1 1 1-.4 1-1-.4-1-1-1z"/>
+    </symbol>
+    
+    <!-- Red Circle (Oracle) -->
+    <symbol id="icon-circle" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="12" r="10"/>
+    </symbol>
+    
+    <!-- Computer/Monitor -->
+    <symbol id="icon-computer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="2" y="3" width="20" height="14" rx="2"/>
+      <line x1="8" y1="21" x2="16" y2="21"/>
+      <line x1="12" y1="17" x2="12" y2="21"/>
+    </symbol>
+    
+    <!-- Building -->
+    <symbol id="icon-building" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="4" y="2" width="16" height="20" rx="1"/>
+      <rect x="8" y="6" width="3" height="3"/>
+      <rect x="13" y="6" width="3" height="3"/>
+      <rect x="8" y="12" width="3" height="3"/>
+      <rect x="13" y="12" width="3" height="3"/>
+      <rect x="10" y="18" width="4" height="4"/>
+    </symbol>
+    
+    <!-- Lightning/Zap -->
+    <symbol id="icon-zap" viewBox="0 0 24 24" fill="currentColor">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </symbol>
+    
+    <!-- Clipboard -->
+    <symbol id="icon-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+      <rect x="8" y="2" width="8" height="4" rx="1"/>
+      <line x1="8" y1="10" x2="16" y2="10"/>
+      <line x1="8" y1="14" x2="16" y2="14"/>
+      <line x1="8" y1="18" x2="12" y2="18"/>
+    </symbol>
+    
+    <!-- Sync/Refresh -->
+    <symbol id="icon-sync" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 2v6h-6"/>
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+      <path d="M3 22v-6h6"/>
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+    </symbol>
+    
+    <!-- Chart/Stats -->
+    <symbol id="icon-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="18" y1="20" x2="18" y2="10"/>
+      <line x1="12" y1="20" x2="12" y2="4"/>
+      <line x1="6" y1="20" x2="6" y2="14"/>
+      <rect x="2" y="2" width="20" height="20" rx="2"/>
+    </symbol>
+    
+    <!-- Lightbulb -->
+    <symbol id="icon-lightbulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M9 18h6"/>
+      <path d="M10 22h4"/>
+      <path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/>
+    </symbol>
+    
+    <!-- Warning/Alert -->
+    <symbol id="icon-warning" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </symbol>
+    
+    <!-- Document -->
+    <symbol id="icon-document" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="8" y1="13" x2="16" y2="13"/>
+      <line x1="8" y1="17" x2="16" y2="17"/>
+    </symbol>
+    
+    <!-- Lock -->
+    <symbol id="icon-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="11" width="18" height="11" rx="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      <circle cx="12" cy="16" r="1" fill="currentColor"/>
+    </symbol>
+    
+    <!-- Check -->
+    <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polyline points="20 6 9 17 4 12"/>
+    </symbol>
+    
+    <!-- Pause -->
+    <symbol id="icon-pause" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="6" y="4" width="4" height="16" rx="1"/>
+      <rect x="14" y="4" width="4" height="16" rx="1"/>
+    </symbol>
+    
+    <!-- Stop -->
+    <symbol id="icon-stop" viewBox="0 0 24 24" fill="currentColor">
+      <rect x="4" y="4" width="16" height="16" rx="2"/>
+    </symbol>
+    
+    <!-- Timer/Clock -->
+    <symbol id="icon-timer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="13" r="8"/>
+      <path d="M12 9v4l2 2"/>
+      <path d="M9 2h6"/>
+      <path d="M12 2v2"/>
+    </symbol>
+    
+    <!-- Receipt -->
+    <symbol id="icon-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"/>
+      <line x1="8" y1="6" x2="16" y2="6"/>
+      <line x1="8" y1="10" x2="16" y2="10"/>
+      <line x1="8" y1="14" x2="12" y2="14"/>
+    </symbol>
+    
+    <!-- Database -->
+    <symbol id="icon-database" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <ellipse cx="12" cy="5" rx="9" ry="3"/>
+      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+    </symbol>
+    
+    <!-- Menu -->
+    <symbol id="icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </symbol>
+  </svg>
+
+  <div class="mobile-topbar no-print">
+    <div class="flex items-center justify-between px-4 py-3">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+          <svg class="w-5 h-5 text-white"><use href="#icon-database"/></svg>
+        </div>
+        <div>
+          <div class="font-semibold text-slate-800 text-sm">법인 DB 관리 시스템</div>
+          <div class="text-xs text-slate-500">v2.0.0</div>
+        </div>
+      </div>
+      <button id="btnToggleNav" class="p-2 hover:bg-slate-100 rounded-lg transition">
+        <svg class="w-6 h-6 text-slate-600"><use href="#icon-menu"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="sidebarOverlay" class="sidebar-overlay no-print"></div>
+  <aside class="sidebar bg-white border-r border-slate-200 no-print">
+    <div class="p-5 border-b border-slate-200 bg-gradient-to-br from-blue-600 to-blue-700">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur">
+          <svg class="w-6 h-6 text-white"><use href="#icon-database"/></svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-white">법인 DB 관리</h1>
+          <p class="text-xs text-blue-100">제품 설명서</p>
+        </div>
+      </div>
+      <div class="flex items-center justify-between text-xs">
+        <span class="px-2 py-1 bg-white/20 rounded text-white">v2.0.0</span>
+        <span class="text-blue-100">2026-02-02</span>
+      </div>
+    </div>
+    <nav class="py-2">
+      <div class="nav-group-title">시작하기</div>
+      <ul class="px-2">
+        <li><a href="#overview" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">1. 개요</a></li>
+        <li><a href="#requirements" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">2. 시스템 요구사항</a></li>
+        <li><a href="#support-level" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">3. 지원 범위(L1~L3)</a></li>
+        <li><a href="#glossary" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">4. 용어 사전</a></li>
+      </ul>
+      <div class="nav-group-title">핵심 기능</div>
+      <ul class="px-2">
+        <li><a href="#server" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">5. 서버 관리</a></li>
+        <li><a href="#db-create" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">6. DB 생성</a></li>
+        <li><a href="#db-list" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">7. DB 목록</a></li>
+        <li><a href="#tables" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">8. 테이블 현황</a></li>
+        <li><a href="#schema" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">9. 테이블 정의서</a></li>
+        <li><a href="#copy" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">10. 데이터 복사</a></li>
+      </ul>
+      <div class="nav-group-title">운영 관리</div>
+      <ul class="px-2">
+        <li><a href="#monitoring" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">11. 모니터링</a></li>
+        <li><a href="#settings" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">12. 설정</a></li>
+        <li><a href="#users" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">13. 사용자 관리</a></li>
+        <li><a href="#logs" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">14. 활동 로그</a></li>
+      </ul>
+      <div class="nav-group-title">보안·운영</div>
+      <ul class="px-2">
+        <li><a href="#security" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">15. 보안·권한·감사</a></li>
+        <li><a href="#safety" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">16. 안전장치</a></li>
+      </ul>
+      <div class="nav-group-title">부록</div>
+      <ul class="px-2">
+        <li><a href="#dbms-sql" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">A. DBMS별 SQL</a></li>
+        <li><a href="#errors" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">B. 오류 코드</a></li>
+        <li><a href="#faq" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">C. FAQ</a></li>
+        <li><a href="#changelog" class="nav-link block px-3 py-2 rounded-lg text-sm text-slate-700">D. 변경 이력</a></li>
+      </ul>
+    </nav>
+    <div class="p-4 border-t border-slate-200">
+      <button onclick="window.print()" class="w-full px-4 py-2.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition text-sm font-medium flex items-center justify-center gap-2">
+        <svg class="icon-sm"><use href="#icon-document"/></svg> PDF로 인쇄
+      </button>
+    </div>
+  </aside>
+  <main class="main-content p-6 lg:p-8">
+    <div class="max-w-5xl mx-auto">
+
+      <!-- 1. Overview -->
+      <section id="overview" class="mb-16">
+        <div class="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 rounded-2xl p-8 text-white mb-8 relative overflow-hidden">
+          <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <div class="relative">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="px-3 py-1 bg-white/20 rounded-full text-sm">Enterprise Solution</span>
+              <span class="px-3 py-1 bg-green-400/30 text-green-100 rounded-full text-sm">v2.0.0</span>
+            </div>
+            <h1 class="text-3xl lg:text-4xl font-bold mb-4">법인 DB 관리 시스템</h1>
+            <p class="text-blue-100 text-lg max-w-2xl mb-6">다중 DB 서버 환경에서 법인(테넌트) DB를 <strong class="text-white">등록·생성·복제·문서화·모니터링</strong>하기 위한 웹 기반 통합 운영 솔루션</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="px-3 py-1.5 rounded-lg bg-white/10 text-sm flex items-center gap-1.5"><svg class="icon-sm"><use href="#icon-building"/></svg> 중앙관리</span>
+              <span class="px-3 py-1.5 rounded-lg bg-white/10 text-sm flex items-center gap-1.5"><svg class="icon-sm"><use href="#icon-zap"/></svg> 프로비저닝</span>
+              <span class="px-3 py-1.5 rounded-lg bg-white/10 text-sm flex items-center gap-1.5"><svg class="icon-sm"><use href="#icon-clipboard"/></svg> 스키마 정의서</span>
+              <span class="px-3 py-1.5 rounded-lg bg-white/10 text-sm flex items-center gap-1.5"><svg class="icon-sm"><use href="#icon-sync"/></svg> 데이터 복사</span>
+              <span class="px-3 py-1.5 rounded-lg bg-white/10 text-sm flex items-center gap-1.5"><svg class="icon-sm"><use href="#icon-chart"/></svg> 모니터링</span>
+            </div>
+          </div>
+        </div>
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">지원 DBMS</h3>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="bg-white rounded-xl p-5 border border-slate-200 card-hover">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center text-amber-700">
+                <svg class="icon-lg"><use href="#icon-file-cabinet"/></svg>
+              </div>
+              <div><div class="font-semibold text-slate-800">MSSQL</div><div class="text-xs text-slate-500">SQL Server</div></div>
+            </div>
+            <div class="flex items-center justify-between text-sm"><span class="text-slate-600">2012+</span><span class="badge badge-l3">L3</span></div>
+          </div>
+          <div class="bg-white rounded-xl p-5 border border-slate-200 card-hover">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-700">
+                <svg class="icon-lg"><use href="#icon-database"/></svg>
+              </div>
+              <div><div class="font-semibold text-slate-800">PostgreSQL</div><div class="text-xs text-slate-500">Postgres</div></div>
+            </div>
+            <div class="flex items-center justify-between text-sm"><span class="text-slate-600">10+</span><span class="badge badge-l2">L2</span></div>
+          </div>
+          <div class="bg-white rounded-xl p-5 border border-slate-200 card-hover">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-700">
+                <svg class="icon-lg"><use href="#icon-database"/></svg>
+              </div>
+              <div><div class="font-semibold text-slate-800">MySQL</div><div class="text-xs text-slate-500">MariaDB 호환</div></div>
+            </div>
+            <div class="flex items-center justify-between text-sm"><span class="text-slate-600">5.7+</span><span class="badge badge-l2">L2</span></div>
+          </div>
+          <div class="bg-white rounded-xl p-5 border border-slate-200 card-hover">
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-red-600">
+                <svg class="icon-lg"><use href="#icon-circle"/></svg>
+              </div>
+              <div><div class="font-semibold text-slate-800">Oracle</div><div class="text-xs text-slate-500">Oracle DB</div></div>
+            </div>
+            <div class="flex items-center justify-between text-sm"><span class="text-slate-600">11g+</span><span class="badge badge-l1">L1</span></div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+          <h3 class="text-lg font-semibold text-slate-800 mb-5">핵심 기능</h3>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-slate-50">
+              <span class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0">1</span>
+              <div><div class="font-semibold text-slate-800 mb-1">서버 관리</div><div class="text-sm text-slate-600">다중 DB 서버 등록, 연결 테스트, 서버별 DB 현황 조회</div></div>
+            </div>
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-slate-50">
+              <span class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0">2</span>
+              <div><div class="font-semibold text-slate-800 mb-1">DB 생성(프로비저닝)</div><div class="text-sm text-slate-600">법인 목록 기반 DB 자동 생성, 계정·권한 구성</div></div>
+            </div>
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-slate-50">
+              <span class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0">3</span>
+              <div><div class="font-semibold text-slate-800 mb-1">테이블 정의서</div><div class="text-sm text-slate-600">스키마/컬럼 정보 Excel 추출 (이관·검수·감사 활용)</div></div>
+            </div>
+            <div class="flex items-start gap-4 p-4 rounded-xl bg-slate-50">
+              <span class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0">4</span>
+              <div><div class="font-semibold text-slate-800 mb-1">데이터 복사</div><div class="text-sm text-slate-600">서버·DB 간 테이블 데이터 복사 (옵션/안전장치 포함)</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Requirements -->
+      <section id="requirements" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">2. 시스템 요구사항</h2>
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600"><svg class="icon-md"><use href="#icon-computer"/></svg></span>
+              클라이언트 환경
+            </h3>
+            <table class="w-full text-sm">
+              <tbody>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 w-32">브라우저</td><td class="px-3 py-2 text-slate-600">Chrome 90+, Edge 90+, Firefox 88+, Safari 14+</td></tr>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50">해상도</td><td class="px-3 py-2 text-slate-600">1280×720 이상 (권장: 1920×1080)</td></tr>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50">네트워크</td><td class="px-3 py-2 text-slate-600">HTTPS 연결 필수</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <span class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center text-green-600"><svg class="icon-md"><use href="#icon-database"/></svg></span>
+              지원 DBMS
+            </h3>
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-semibold text-slate-700">DBMS</th><th class="px-3 py-2 text-left font-semibold text-slate-700">버전</th><th class="px-3 py-2 text-left font-semibold text-slate-700">포트</th></tr></thead>
+              <tbody>
+                <tr><td class="px-3 py-2 font-medium">MS SQL Server</td><td class="px-3 py-2 text-slate-600">2012+</td><td class="px-3 py-2 font-mono text-blue-600">1433</td></tr>
+                <tr class="bg-slate-50"><td class="px-3 py-2 font-medium">PostgreSQL</td><td class="px-3 py-2 text-slate-600">10+</td><td class="px-3 py-2 font-mono text-blue-600">5432</td></tr>
+                <tr><td class="px-3 py-2 font-medium">MySQL</td><td class="px-3 py-2 text-slate-600">5.7+</td><td class="px-3 py-2 font-mono text-blue-600">3306</td></tr>
+                <tr class="bg-slate-50"><td class="px-3 py-2 font-medium">Oracle</td><td class="px-3 py-2 text-slate-600">11g+</td><td class="px-3 py-2 font-mono text-blue-600">1521</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert alert-info">
+          <span class="text-blue-600 text-xl flex-shrink-0"><svg class="icon-md"><use href="#icon-lightbulb"/></svg></span>
+          <div><h4 class="font-semibold text-blue-900 mb-1">네트워크 요구사항</h4><p class="text-blue-800 text-sm">본 시스템이 설치된 서버에서 대상 DB 서버로의 네트워크 연결이 가능해야 합니다. 방화벽 정책에서 해당 포트를 허용해 주세요.</p></div>
+        </div>
+      </section>
+
+      <!-- 3. Support Level -->
+      <section id="support-level" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">3. 지원 범위 (L1~L3)</h2>
+        <p class="text-slate-600 mb-6">DBMS별로 "지원"의 의미가 다를 수 있으므로, 기능 지원 범위를 <strong>레벨(L1~L3)</strong>로 구분합니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">레벨 정의</h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-36">레벨</th><th class="px-4 py-3 text-left font-semibold text-slate-700">정의</th><th class="px-4 py-3 text-left font-semibold text-slate-700">대표 기능</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3"><span class="badge badge-l1">L1 연결/조회</span></td><td class="px-4 py-3 text-slate-600">서버 연결 및 메타 조회 중심</td><td class="px-4 py-3 text-slate-600">서버 등록, 연결 테스트, DB 목록, 테이블/컬럼 조회</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3"><span class="badge badge-l2">L2 작업</span></td><td class="px-4 py-3 text-slate-600">문서화/복사 등 운영 작업 지원</td><td class="px-4 py-3 text-slate-600">정의서(Excel) 추출, 데이터 복사(제약 포함)</td></tr>
+              <tr><td class="px-4 py-3"><span class="badge badge-l3">L3 프로비저닝</span></td><td class="px-4 py-3 text-slate-600">신규 DB 생성/계정/권한 자동 구성</td><td class="px-4 py-3 text-slate-600">DB 생성, 계정/권한, 파일 경로/크기 적용</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">DBMS별 지원 레벨</h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700">DBMS</th><th class="px-4 py-3 text-center font-semibold text-slate-700">L1 연결/조회</th><th class="px-4 py-3 text-center font-semibold text-slate-700">L2 작업</th><th class="px-4 py-3 text-center font-semibold text-slate-700">L3 프로비저닝</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3 font-medium"><span class="badge badge-mssql">MSSQL</span></td><td class="px-4 py-3 text-center"><span class="text-green-600 font-bold">✓</span></td><td class="px-4 py-3 text-center"><span class="text-green-600 font-bold">✓</span></td><td class="px-4 py-3 text-center"><span class="text-green-600 font-bold">✓</span></td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium"><span class="badge badge-postgresql">PostgreSQL</span></td><td class="px-4 py-3 text-center"><span class="text-green-600 font-bold">✓</span></td><td class="px-4 py-3 text-center"><span class="text-green-600 font-bold">✓</span></td><td class="px-4 py-3 text-center"><span class="text-amber-500">△</span></td></tr>
+              <tr><td class="px-4 py-3 font-medium"><span class="badge badge-mysql">MySQL</span></td><td class="px-4 py-3 text-center"><span class="text-green-600 font-bold">✓</span></td><td class="px-4 py-3 text-center"><span class="text-green-600 font-bold">✓</span></td><td class="px-4 py-3 text-center"><span class="text-amber-500">△</span></td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium"><span class="badge badge-oracle">Oracle</span></td><td class="px-4 py-3 text-center"><span class="text-green-600 font-bold">✓</span></td><td class="px-4 py-3 text-center"><span class="text-amber-500">△</span></td><td class="px-4 py-3 text-center"><span class="text-slate-400">-</span></td></tr>
+            </tbody>
+          </table>
+          <p class="text-xs text-slate-500 mt-3">✓ 완전 지원 | △ 부분 지원 | - 미지원</p>
+        </div>
+      </section>
+
+      <!-- 4. Glossary -->
+      <section id="glossary" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">4. 용어 사전</h2>
+        <p class="text-slate-600 mb-6">본 문서에서 사용되는 주요 용어와 약어를 정리합니다.</p>
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-40">용어</th><th class="px-4 py-3 text-left font-semibold text-slate-700">설명</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3 font-mono font-medium text-blue-600">DBMS</td><td class="px-4 py-3 text-slate-600">Database Management System - 데이터베이스 관리 시스템</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-mono font-medium text-blue-600">DDL</td><td class="px-4 py-3 text-slate-600">Data Definition Language - CREATE, ALTER, DROP 등 구조 정의 SQL</td></tr>
+              <tr><td class="px-4 py-3 font-mono font-medium text-blue-600">MDF/LDF</td><td class="px-4 py-3 text-slate-600">MSSQL 데이터 파일(.mdf) / 로그 파일(.ldf)</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-mono font-medium text-blue-600">RBAC</td><td class="px-4 py-3 text-slate-600">Role-Based Access Control - 역할 기반 접근 제어</td></tr>
+              <tr><td class="px-4 py-3 font-mono font-medium text-blue-600">프로비저닝</td><td class="px-4 py-3 text-slate-600">DB, 계정, 권한 등을 자동으로 생성/구성하는 작업</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-mono font-medium text-blue-600">테넌트</td><td class="px-4 py-3 text-slate-600">멀티테넌트 환경에서 개별 고객/법인을 의미</td></tr>
+              <tr><td class="px-4 py-3 font-mono font-medium text-blue-600">템플릿 DB</td><td class="px-4 py-3 text-slate-600">신규 DB 생성 시 스키마 복제의 기준이 되는 DB</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-mono font-medium text-blue-600">Dry-run</td><td class="px-4 py-3 text-slate-600">실제 실행 없이 검증만 수행하는 테스트 모드</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 5. Server Management -->
+      <section id="server" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">5. 서버 관리</h2>
+        <p class="text-slate-600 mb-6">여러 데이터베이스 서버를 등록하고 중앙에서 관리합니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">5.1 서버 등록</h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-36">항목</th><th class="px-4 py-3 text-left font-semibold text-slate-700">설명</th><th class="px-4 py-3 text-left font-semibold text-slate-700 w-24">필수</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3 font-medium">서버명</td><td class="px-4 py-3 text-slate-600">식별용 이름 (예: 운영서버, 개발서버)</td><td class="px-4 py-3"><span class="text-red-500">필수</span></td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">호스트</td><td class="px-4 py-3 text-slate-600">서버 IP 또는 도메인</td><td class="px-4 py-3"><span class="text-red-500">필수</span></td></tr>
+              <tr><td class="px-4 py-3 font-medium">포트</td><td class="px-4 py-3 text-slate-600">접속 포트 (DBMS별 기본값 자동 입력)</td><td class="px-4 py-3"><span class="text-red-500">필수</span></td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">DB 유형</td><td class="px-4 py-3 text-slate-600">MSSQL, PostgreSQL, MySQL, Oracle 중 선택</td><td class="px-4 py-3"><span class="text-red-500">필수</span></td></tr>
+              <tr><td class="px-4 py-3 font-medium">사용자명/비밀번호</td><td class="px-4 py-3 text-slate-600">DB 접속 계정 정보 (암호화 저장)</td><td class="px-4 py-3"><span class="text-red-500">필수</span></td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">기본 DB</td><td class="px-4 py-3 text-slate-600">연결 시 기본으로 사용할 DB</td><td class="px-4 py-3"><span class="text-slate-400">선택</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">5.2 주요 기능</h3>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center text-green-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">연결 테스트</div><div class="text-sm text-slate-600">저장 전 연결 상태 확인</div></div></li>
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center text-green-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">서버별 DB 개수 표시</div><div class="text-sm text-slate-600">등록된 DB 수 실시간 표시</div></div></li>
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center text-green-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">서버 정보 수정/삭제</div><div class="text-sm text-slate-600">Soft Delete 방식 권장</div></div></li>
+            </ul>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">5.3 연결 상태</h3>
+            <div class="space-y-2">
+              <div class="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200"><span class="w-3 h-3 bg-green-500 rounded-full"></span><div><div class="font-medium text-green-800">연결됨</div><div class="text-xs text-green-600">정상 접속 가능</div></div></div>
+              <div class="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200"><span class="w-3 h-3 bg-amber-500 rounded-full"></span><div><div class="font-medium text-amber-800">지연</div><div class="text-xs text-amber-600">응답 시간 3초 초과</div></div></div>
+              <div class="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200"><span class="w-3 h-3 bg-red-500 rounded-full"></span><div><div class="font-medium text-red-800">연결 실패</div><div class="text-xs text-red-600">접속 불가 또는 인증 오류</div></div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. DB Create -->
+      <section id="db-create" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">6. DB 생성(프로비저닝)</h2>
+        <p class="text-slate-600 mb-6">메인 DB(법인 마스터)에서 법인 정보를 조회하여 신규 법인 DB를 자동으로 생성합니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-6">생성 프로세스</h3>
+          <div class="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-0">
+            <div class="flex items-center gap-3 lg:flex-1">
+              <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-200">1</div>
+              <div><div class="font-semibold text-slate-800">법인 정보 조회</div><div class="text-xs text-slate-500">메인 DB 연결</div></div>
+            </div>
+            <div class="hidden lg:block w-8 h-0.5 bg-blue-300"></div>
+            <div class="flex items-center gap-3 lg:flex-1">
+              <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-200">2</div>
+              <div><div class="font-semibold text-slate-800">법인 선택</div><div class="text-xs text-slate-500">미생성 필터</div></div>
+            </div>
+            <div class="hidden lg:block w-8 h-0.5 bg-blue-300"></div>
+            <div class="flex items-center gap-3 lg:flex-1">
+              <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-200">3</div>
+              <div><div class="font-semibold text-slate-800">소스/타겟 설정</div><div class="text-xs text-slate-500">템플릿 선택</div></div>
+            </div>
+            <div class="hidden lg:block w-8 h-0.5 bg-blue-300"></div>
+            <div class="flex items-center gap-3 lg:flex-1">
+              <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-lg shadow-blue-200">4</div>
+              <div><div class="font-semibold text-slate-800">SQL 검증</div><div class="text-xs text-slate-500">Dry-run</div></div>
+            </div>
+            <div class="hidden lg:block w-8 h-0.5 bg-green-400"></div>
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-green-200"><svg class="w-6 h-6"><use href="#icon-check"/></svg></div>
+              <div><div class="font-semibold text-slate-800">완료</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">6.1 참조(소스) 설정</h3>
+            <table class="w-full text-sm">
+              <tbody>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border w-28">서버 선택</td><td class="px-3 py-2 text-slate-600 border">템플릿 DB가 있는 서버</td></tr>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border">템플릿 DB</td><td class="px-3 py-2 text-slate-600 border">스키마 복제 기준 DB</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">6.2 대상(타겟) 설정</h3>
+            <table class="w-full text-sm">
+              <tbody>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border w-28">서버 선택</td><td class="px-3 py-2 text-slate-600 border">신규 DB를 생성할 서버</td></tr>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border">생성될 DB명</td><td class="px-3 py-2 text-slate-600 border">법인 선택 시 자동 입력</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="alert alert-danger">
+          <span class="text-red-600 text-xl flex-shrink-0"><svg class="icon-md"><use href="#icon-warning"/></svg></span>
+          <div><h4 class="font-semibold text-red-900 mb-1">주의사항</h4><ul class="text-red-800 text-sm space-y-1"><li>• DB 생성은 되돌릴 수 없습니다. 실행 전 대상 서버와 DB명을 반드시 확인하세요.</li><li>• 운영 서버에서는 비업무 시간대 실행을 권장합니다.</li><li>• 생성 실패 시 자동 롤백되나, 수동 확인을 권장합니다.</li></ul></div>
+        </div>
+      </section>
+
+      <!-- 7. DB List -->
+      <section id="db-list" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">7. DB 목록</h2>
+        <p class="text-slate-600 mb-6">등록된 서버의 모든 데이터베이스를 조회합니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">7.1 표시 정보</h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-32">컬럼</th><th class="px-4 py-3 text-left font-semibold text-slate-700">설명</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3 font-medium">DB명</td><td class="px-4 py-3 text-slate-600">데이터베이스 이름</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">상태</td><td class="px-4 py-3 text-slate-600">ONLINE / OFFLINE / RESTORING 등 (배지 표시)</td></tr>
+              <tr><td class="px-4 py-3 font-medium">Data/Log 크기</td><td class="px-4 py-3 text-slate-600">데이터/로그 파일 용량 (GB 단위)</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">Log 사용률</td><td class="px-4 py-3 text-slate-600">로그 파일 사용 비율 (임계치 경고)</td></tr>
+              <tr><td class="px-4 py-3 font-medium">마지막 백업</td><td class="px-4 py-3 text-slate-600">Full/Diff/Log 최근 백업 시간</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">7.2 Database Health 배지</h3>
+          <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <div class="flex flex-wrap gap-2">
+              <span class="px-2.5 py-1 rounded-lg bg-green-100 text-green-700 text-xs font-medium">ONLINE</span>
+              <span class="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-xs font-medium">LOG 82%</span>
+              <span class="px-2.5 py-1 rounded-lg bg-slate-200 text-slate-700 text-xs font-medium">AUTO_SHRINK OFF</span>
+              <span class="px-2.5 py-1 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-medium">BACKUP 2h ago</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-3"><strong>임계치:</strong> 80% 이상 amber, 90% 이상 red</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Continue with remaining sections... -->
+      <!-- 8-16 sections and appendices follow the same pattern -->
+
+      <!-- 8. Tables -->
+      <section id="tables" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">8. 테이블 현황</h2>
+        <p class="text-slate-600 mb-6">선택한 DB의 테이블 목록과 상세 정보를 조회합니다.</p>
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">8.1 테이블 목록</h3>
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-semibold text-slate-700">컬럼</th><th class="px-3 py-2 text-left font-semibold text-slate-700">설명</th></tr></thead>
+              <tbody>
+                <tr><td class="px-3 py-2 font-medium">스키마</td><td class="px-3 py-2 text-slate-600">스키마명 (dbo 등)</td></tr>
+                <tr class="bg-slate-50"><td class="px-3 py-2 font-medium">테이블명</td><td class="px-3 py-2 text-slate-600">테이블 이름</td></tr>
+                <tr><td class="px-3 py-2 font-medium">행 수</td><td class="px-3 py-2 text-slate-600">레코드 수</td></tr>
+                <tr class="bg-slate-50"><td class="px-3 py-2 font-medium">크기</td><td class="px-3 py-2 text-slate-600">테이블 용량</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">8.2 테이블 상세</h3>
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50"><tr><th class="px-3 py-2 text-left font-semibold text-slate-700">컬럼</th><th class="px-3 py-2 text-left font-semibold text-slate-700">설명</th></tr></thead>
+              <tbody>
+                <tr><td class="px-3 py-2 font-medium">컬럼명</td><td class="px-3 py-2 text-slate-600">컬럼 이름</td></tr>
+                <tr class="bg-slate-50"><td class="px-3 py-2 font-medium">데이터 타입</td><td class="px-3 py-2 text-slate-600">VARCHAR, INT 등</td></tr>
+                <tr><td class="px-3 py-2 font-medium">NULL 허용</td><td class="px-3 py-2 text-slate-600">YES / NO</td></tr>
+                <tr class="bg-slate-50"><td class="px-3 py-2 font-medium">PK/FK</td><td class="px-3 py-2 text-slate-600">키 여부</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9. Schema Export -->
+      <section id="schema" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">9. 테이블 정의서</h2>
+        <p class="text-slate-600 mb-6">선택한 테이블의 스키마 정보를 Excel 파일로 추출합니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">9.1 Excel 파일 구성</h3>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div><h4 class="font-medium text-slate-700 mb-3">시트 구성</h4><table class="w-full text-sm"><tbody><tr><td class="px-3 py-2 font-medium border bg-blue-50 text-blue-800">목차</td><td class="px-3 py-2 text-slate-600 border">테이블 목록 및 요약</td></tr><tr><td class="px-3 py-2 font-medium border">테이블별 시트</td><td class="px-3 py-2 text-slate-600 border">컬럼/제약조건 정보</td></tr></tbody></table></div>
+            <div><h4 class="font-medium text-slate-700 mb-3">포함 정보</h4><ul class="space-y-1 text-sm text-slate-600"><li>• 컬럼명, 데이터 타입, 길이</li><li>• NULL 허용 여부, 기본값</li><li>• PK / FK / INDEX 여부</li><li>• 컬럼 설명</li></ul></div>
+          </div>
+        </div>
+        <div class="alert alert-info">
+          <span class="text-blue-600 text-xl flex-shrink-0"><svg class="icon-md"><use href="#icon-clipboard"/></svg></span>
+          <div><h4 class="font-semibold text-blue-900 mb-1">파일 제한사항</h4><ul class="text-blue-800 text-sm space-y-1"><li>• 최대 테이블 수: 200개 (초과 시 분할)</li><li>• 최대 파일 크기: 50MB</li><li>• 지원 형식: Excel 2007+ (.xlsx)</li></ul></div>
+        </div>
+      </section>
+
+      <!-- 10. Data Copy -->
+      <section id="copy" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">10. 데이터 복사</h2>
+        <p class="text-slate-600 mb-6">서버/DB 간 테이블 데이터를 복사합니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">10.1 복사 옵션</h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-40">옵션</th><th class="px-4 py-3 text-left font-semibold text-slate-700">설명</th><th class="px-4 py-3 text-left font-semibold text-slate-700 w-24">기본값</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3 font-medium">기존 데이터 삭제</td><td class="px-4 py-3 text-slate-600">복사 전 대상 테이블 데이터 삭제 (TRUNCATE)</td><td class="px-4 py-3"><span class="text-slate-500">OFF</span></td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">테이블 자동 생성</td><td class="px-4 py-3 text-slate-600">대상에 테이블이 없으면 자동 생성</td><td class="px-4 py-3"><span class="text-blue-600">ON</span></td></tr>
+              <tr><td class="px-4 py-3 font-medium">배치 크기</td><td class="px-4 py-3 text-slate-600">N건 단위로 분할 복사</td><td class="px-4 py-3"><span class="text-blue-600">10,000</span></td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">트랜잭션 정책</td><td class="px-4 py-3 text-slate-600">전체(All) / 배치별(Batch) 트랜잭션</td><td class="px-4 py-3"><span class="text-blue-600">Batch</span></td></tr>
+              <tr><td class="px-4 py-3 font-medium">Identity 유지</td><td class="px-4 py-3 text-slate-600">원본의 Identity 값 유지</td><td class="px-4 py-3"><span class="text-blue-600">ON</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">10.2 진행 상태</h3>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div><h4 class="font-medium text-slate-700 mb-3">실시간 모니터링</h4><ul class="space-y-2 text-sm text-slate-600"><li>• 전체 진행률 (프로그레스 바)</li><li>• 현재 테이블 / 전체 테이블</li><li>• 복사된 행 수 / 전체 행 수</li><li>• 경과 시간 / 예상 남은 시간</li></ul></div>
+            <div><h4 class="font-medium text-slate-700 mb-3">제어 기능</h4><div class="space-y-2">
+              <div class="p-3 bg-amber-50 rounded-lg border border-amber-200 flex items-center gap-2">
+                <span class="text-amber-600"><svg class="icon-md"><use href="#icon-pause"/></svg></span>
+                <div><div class="font-medium text-amber-800">일시정지</div><div class="text-xs text-amber-600">현재 배치 완료 후 대기</div></div>
+              </div>
+              <div class="p-3 bg-red-50 rounded-lg border border-red-200 flex items-center gap-2">
+                <span class="text-red-600"><svg class="icon-md"><use href="#icon-stop"/></svg></span>
+                <div><div class="font-medium text-red-800">취소</div><div class="text-xs text-red-600">현재 배치까지만 커밋 후 중단</div></div>
+              </div>
+            </div></div>
+          </div>
+        </div>
+        <div class="alert alert-danger">
+          <span class="text-red-600 text-xl flex-shrink-0"><svg class="icon-md"><use href="#icon-warning"/></svg></span>
+          <div><h4 class="font-semibold text-red-900 mb-1">운영 주의사항</h4><ul class="text-red-800 text-sm space-y-1"><li>• 대용량 복사는 트랜잭션 로그/IO/락으로 서비스 영향이 발생할 수 있습니다.</li><li>• 운영 시간대 제한 및 배치 복사 방식을 권장합니다.</li><li>• 동일 테이블에 대한 중복 복사 작업은 자동으로 차단됩니다.</li></ul></div>
+        </div>
+      </section>
+
+      <!-- 11-16 and Appendix sections abbreviated for brevity -->
+      <!-- They follow the same pattern of replacing emojis with SVG icons -->
+
+      <!-- 11. Monitoring -->
+      <section id="monitoring" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">11. 모니터링</h2>
+        <p class="text-slate-600 mb-6">서버 및 DB 상태를 모니터링하고 임계치 기반 경고를 제공합니다.</p>
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">11.1 대시보드</h3>
+            <table class="w-full text-sm"><tbody>
+              <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border w-28">서버 현황</td><td class="px-3 py-2 text-slate-600 border">등록된 서버 수, 연결 상태</td></tr>
+              <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border">DB 현황</td><td class="px-3 py-2 text-slate-600 border">전체 DB 수, 상태 분포</td></tr>
+              <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border">용량 현황</td><td class="px-3 py-2 text-slate-600 border">서버별 총 용량, 사용률</td></tr>
+              <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border">알림</td><td class="px-3 py-2 text-slate-600 border">임계치 초과 경고 목록</td></tr>
+            </tbody></table>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">11.2 Instance Health 카드</h3>
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <div class="grid grid-cols-2 gap-3">
+                <div class="p-3 rounded-lg bg-white border border-slate-200"><div class="text-xs text-slate-500">Disk</div><div class="font-semibold text-slate-800">72%</div></div>
+                <div class="p-3 rounded-lg bg-white border border-slate-200"><div class="text-xs text-slate-500">tempdb</div><div class="font-semibold text-slate-800">18%</div></div>
+                <div class="p-3 rounded-lg bg-amber-50 border border-amber-200"><div class="text-xs text-amber-600">waits</div><div class="font-semibold text-amber-800 text-sm">PAGEIOLATCH</div></div>
+                <div class="p-3 rounded-lg bg-white border border-slate-200"><div class="text-xs text-slate-500">connections</div><div class="font-semibold text-slate-800">312</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 12. Settings -->
+      <section id="settings" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">12. 설정</h2>
+        <p class="text-slate-600 mb-6">시스템 운영에 필요한 설정을 관리합니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <svg class="icon-md text-slate-600"><use href="#icon-chart"/></svg>
+            12.1 알림 설정
+          </h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-40">항목</th><th class="px-4 py-3 text-left font-semibold text-slate-700">설명</th><th class="px-4 py-3 text-left font-semibold text-slate-700 w-28">기본값</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3 font-medium">용량 경고 임계치</td><td class="px-4 py-3 text-slate-600">경고 알림 발생 기준</td><td class="px-4 py-3 text-amber-600 font-semibold">80%</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">용량 위험 임계치</td><td class="px-4 py-3 text-slate-600">위험 알림 발생 기준</td><td class="px-4 py-3 text-red-600 font-semibold">90%</td></tr>
+              <tr><td class="px-4 py-3 font-medium">알림 채널</td><td class="px-4 py-3 text-slate-600">메일 / 슬랙 / 웹훅 등</td><td class="px-4 py-3 text-slate-500">-</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">12.2 프로비저닝 설정</h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-36">항목</th><th class="px-4 py-3 text-left font-semibold text-slate-700">설명</th><th class="px-4 py-3 text-left font-semibold text-slate-700 w-40">기본값</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3 font-medium">기본 템플릿 DB</td><td class="px-4 py-3 text-slate-600">스키마 복제 기준 DB</td><td class="px-4 py-3 font-mono text-blue-600">ACC_UNIES</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">Data 파일 경로</td><td class="px-4 py-3 text-slate-600">MDF 저장 경로</td><td class="px-4 py-3 font-mono text-blue-600 text-xs">D:\Data\mssql\</td></tr>
+              <tr><td class="px-4 py-3 font-medium">초기 DB 크기</td><td class="px-4 py-3 text-slate-600">초기 데이터 파일 크기</td><td class="px-4 py-3">100 MB</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">파일 증가 단위</td><td class="px-4 py-3 text-slate-600">자동 증가 크기</td><td class="px-4 py-3">64 MB</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 13. Users -->
+      <section id="users" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">13. 사용자 관리</h2>
+        <p class="text-slate-600 mb-6">시스템 사용자 계정 및 권한을 관리합니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">13.1 역할(Role) 정의</h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-32">역할</th><th class="px-4 py-3 text-left font-semibold text-slate-700">권한</th><th class="px-4 py-3 text-left font-semibold text-slate-700 w-40">대상 사용자</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3"><span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">Admin</span></td><td class="px-4 py-3 text-slate-600">모든 기능 접근 + 사용자 관리</td><td class="px-4 py-3 text-slate-600">시스템 관리자</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">Operator</span></td><td class="px-4 py-3 text-slate-600">서버/DB 관리, 데이터 복사</td><td class="px-4 py-3 text-slate-600">운영 담당자</td></tr>
+              <tr><td class="px-4 py-3"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">Viewer</span></td><td class="px-4 py-3 text-slate-600">조회만 가능 (읽기 전용)</td><td class="px-4 py-3 text-slate-600">모니터링 담당자</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">13.2 사용자 등록 정보</h3>
+            <table class="w-full text-sm">
+              <tbody>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border w-28">아이디</td><td class="px-3 py-2 text-slate-600 border">영문+숫자, 4~20자</td></tr>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border">이름</td><td class="px-3 py-2 text-slate-600 border">사용자 실명</td></tr>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border">이메일</td><td class="px-3 py-2 text-slate-600 border">알림 수신용</td></tr>
+                <tr><td class="px-3 py-2 font-medium text-slate-700 bg-slate-50 border">역할</td><td class="px-3 py-2 text-slate-600 border">Admin / Operator / Viewer</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">13.3 계정 관리</h3>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center text-green-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">비밀번호 초기화</div><div class="text-sm text-slate-600">임시 비밀번호 발급</div></div></li>
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center text-green-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">계정 잠금/해제</div><div class="text-sm text-slate-600">보안 정책에 따른 처리</div></div></li>
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center text-green-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">로그인 이력 조회</div><div class="text-sm text-slate-600">접속 기록 확인</div></div></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 14. Activity Logs -->
+      <section id="logs" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">14. 활동 로그</h2>
+        <p class="text-slate-600 mb-6">시스템 내 모든 작업 이력을 기록하고 조회합니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <svg class="icon-md text-slate-600"><use href="#icon-receipt"/></svg>
+            14.1 로그 유형
+          </h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-36">유형</th><th class="px-4 py-3 text-left font-semibold text-slate-700">설명</th><th class="px-4 py-3 text-left font-semibold text-slate-700 w-28">보관 기간</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">LOGIN</span></td><td class="px-4 py-3 text-slate-600">로그인/로그아웃 기록</td><td class="px-4 py-3 text-slate-600">90일</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3"><span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">CREATE</span></td><td class="px-4 py-3 text-slate-600">DB/테이블 생성 작업</td><td class="px-4 py-3 text-slate-600">1년</td></tr>
+              <tr><td class="px-4 py-3"><span class="px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs font-medium">COPY</span></td><td class="px-4 py-3 text-slate-600">데이터 복사 작업</td><td class="px-4 py-3 text-slate-600">1년</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3"><span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">EXPORT</span></td><td class="px-4 py-3 text-slate-600">정의서 내보내기</td><td class="px-4 py-3 text-slate-600">90일</td></tr>
+              <tr><td class="px-4 py-3"><span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">ERROR</span></td><td class="px-4 py-3 text-slate-600">오류 발생 기록</td><td class="px-4 py-3 text-slate-600">1년</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">14.2 로그 검색</h3>
+          <div class="grid md:grid-cols-2 gap-6">
+            <div><h4 class="font-medium text-slate-700 mb-3">검색 조건</h4><ul class="space-y-1 text-sm text-slate-600"><li>• 기간 (시작일 ~ 종료일)</li><li>• 사용자</li><li>• 작업 유형</li><li>• 대상 서버/DB</li><li>• 키워드 검색</li></ul></div>
+            <div><h4 class="font-medium text-slate-700 mb-3">내보내기</h4><ul class="space-y-1 text-sm text-slate-600"><li>• CSV 형식 다운로드</li><li>• 최대 10,000건 제한</li><li>• 감사 보고용 포맷 지원</li></ul></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 15. Security -->
+      <section id="security" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">15. 보안·권한·감사</h2>
+        <p class="text-slate-600 mb-6">시스템 보안 및 접근 제어 정책을 설명합니다.</p>
+        <div class="grid md:grid-cols-2 gap-6 mb-6">
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <svg class="icon-md text-slate-600"><use href="#icon-lock"/></svg>
+              15.1 인증
+            </h3>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-blue-100 rounded flex items-center justify-center text-blue-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">JWT 토큰 인증</div><div class="text-sm text-slate-600">유효기간 30분, 갱신 가능</div></div></li>
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-blue-100 rounded flex items-center justify-center text-blue-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">비밀번호 정책</div><div class="text-sm text-slate-600">8자 이상, 영문+숫자+특수문자</div></div></li>
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-blue-100 rounded flex items-center justify-center text-blue-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">로그인 실패 잠금</div><div class="text-sm text-slate-600">5회 실패 시 30분 잠금</div></div></li>
+            </ul>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+              <svg class="icon-md text-slate-600"><use href="#icon-database"/></svg>
+              15.2 권한 관리
+            </h3>
+            <ul class="space-y-3">
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center text-green-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">RBAC 기반</div><div class="text-sm text-slate-600">역할별 기능 접근 제어</div></div></li>
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center text-green-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">서버별 권한</div><div class="text-sm text-slate-600">특정 서버만 접근 허용 가능</div></div></li>
+              <li class="flex items-start gap-3"><span class="w-6 h-6 bg-green-100 rounded flex items-center justify-center text-green-600 flex-shrink-0 mt-0.5"><svg class="w-4 h-4"><use href="#icon-check"/></svg></span><div><div class="font-medium text-slate-800">민감 작업 승인</div><div class="text-sm text-slate-600">운영 DB 작업 시 2차 확인</div></div></li>
+            </ul>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <svg class="icon-md text-slate-600"><use href="#icon-receipt"/></svg>
+            15.3 감사 로그
+          </h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700">기록 항목</th><th class="px-4 py-3 text-left font-semibold text-slate-700">내용</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3 font-medium">WHO</td><td class="px-4 py-3 text-slate-600">작업 수행자 (사용자 ID, IP)</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">WHAT</td><td class="px-4 py-3 text-slate-600">수행 작업 (생성, 복사, 삭제 등)</td></tr>
+              <tr><td class="px-4 py-3 font-medium">WHEN</td><td class="px-4 py-3 text-slate-600">작업 시간 (UTC 기준)</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">WHERE</td><td class="px-4 py-3 text-slate-600">대상 리소스 (서버, DB, 테이블)</td></tr>
+              <tr><td class="px-4 py-3 font-medium">RESULT</td><td class="px-4 py-3 text-slate-600">작업 결과 (성공/실패, 오류 메시지)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 16. Safety -->
+      <section id="safety" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">16. 안전장치</h2>
+        <p class="text-slate-600 mb-6">실수로 인한 데이터 손실을 방지하기 위한 안전장치입니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4 flex items-center gap-2">
+            <svg class="icon-md text-amber-600"><use href="#icon-warning"/></svg>
+            16.1 작업 전 확인
+          </h3>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="p-4 bg-amber-50 rounded-xl border border-amber-200">
+              <div class="font-medium text-amber-800 mb-2">DB 생성</div>
+              <ul class="text-sm text-amber-700 space-y-1"><li>• 대상 서버 재확인</li><li>• DB명 중복 검사</li><li>• Dry-run 실행</li></ul>
+            </div>
+            <div class="p-4 bg-red-50 rounded-xl border border-red-200">
+              <div class="font-medium text-red-800 mb-2">데이터 복사</div>
+              <ul class="text-sm text-red-700 space-y-1"><li>• 운영 DB 경고 표시</li><li>• 기존 데이터 삭제 시 2차 확인</li><li>• 대용량 복사 경고</li></ul>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">16.2 운영 시간 제한</h3>
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-36">작업</th><th class="px-4 py-3 text-left font-semibold text-slate-700">제한 시간</th><th class="px-4 py-3 text-left font-semibold text-slate-700">우회</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3 font-medium">DB 생성</td><td class="px-4 py-3 text-slate-600">업무 시간 외 권장 (18:00 ~ 08:00)</td><td class="px-4 py-3 text-slate-600">Admin 승인</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-medium">대용량 복사</td><td class="px-4 py-3 text-slate-600">10만건 이상 시 경고</td><td class="px-4 py-3 text-slate-600">배치 분할</td></tr>
+              <tr><td class="px-4 py-3 font-medium">운영 DB 작업</td><td class="px-4 py-3 text-slate-600">환경 태그 기반 경고</td><td class="px-4 py-3 text-slate-600">2차 확인</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="alert alert-success">
+          <span class="text-green-600 text-xl flex-shrink-0"><svg class="icon-md"><use href="#icon-check"/></svg></span>
+          <div><h4 class="font-semibold text-green-900 mb-1">자동 백업 권장</h4><p class="text-green-800 text-sm">DB 생성/복사 작업 전 대상 DB의 최근 백업 여부를 확인합니다. 백업이 24시간 이상 경과된 경우 경고를 표시합니다.</p></div>
+        </div>
+      </section>
+
+      <!-- Appendix A: DBMS SQL -->
+      <section id="dbms-sql" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">부록 A. DBMS별 SQL 예시</h2>
+        <p class="text-slate-600 mb-6">주요 작업에 사용되는 DBMS별 SQL 구문입니다.</p>
+        <div class="bg-white rounded-xl p-6 border border-slate-200 mb-6">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">A.1 DB 목록 조회</h3>
+          <div class="space-y-4">
+            <div><div class="flex items-center gap-2 mb-2"><span class="badge badge-mssql">MSSQL</span></div><div class="code-block"><code><span class="keyword">SELECT</span> name, state_desc, create_date <span class="keyword">FROM</span> sys.databases <span class="keyword">WHERE</span> database_id > 4;</code></div></div>
+            <div><div class="flex items-center gap-2 mb-2"><span class="badge badge-postgresql">PostgreSQL</span></div><div class="code-block"><code><span class="keyword">SELECT</span> datname, pg_size_pretty(pg_database_size(datname)) <span class="keyword">FROM</span> pg_database;</code></div></div>
+            <div><div class="flex items-center gap-2 mb-2"><span class="badge badge-mysql">MySQL</span></div><div class="code-block"><code><span class="keyword">SHOW</span> DATABASES;</code></div></div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl p-6 border border-slate-200">
+          <h3 class="text-lg font-semibold text-slate-800 mb-4">A.2 테이블 컬럼 조회</h3>
+          <div class="space-y-4">
+            <div><div class="flex items-center gap-2 mb-2"><span class="badge badge-mssql">MSSQL</span></div><div class="code-block"><code><span class="keyword">SELECT</span> c.name, t.name <span class="keyword">AS</span> type, c.max_length, c.is_nullable<br><span class="keyword">FROM</span> sys.columns c <span class="keyword">JOIN</span> sys.types t <span class="keyword">ON</span> c.user_type_id = t.user_type_id<br><span class="keyword">WHERE</span> c.object_id = OBJECT_ID(<span class="string">'dbo.TableName'</span>);</code></div></div>
+            <div><div class="flex items-center gap-2 mb-2"><span class="badge badge-postgresql">PostgreSQL</span></div><div class="code-block"><code><span class="keyword">SELECT</span> column_name, data_type, is_nullable<br><span class="keyword">FROM</span> information_schema.columns<br><span class="keyword">WHERE</span> table_name = <span class="string">'table_name'</span>;</code></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Appendix B: Error Codes -->
+      <section id="errors" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">부록 B. 오류 코드</h2>
+        <p class="text-slate-600 mb-6">시스템에서 발생할 수 있는 오류 코드와 대응 방법입니다.</p>
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-28">코드</th><th class="px-4 py-3 text-left font-semibold text-slate-700">설명</th><th class="px-4 py-3 text-left font-semibold text-slate-700">대응</th></tr></thead>
+            <tbody>
+              <tr><td class="px-4 py-3 font-mono text-red-600">E001</td><td class="px-4 py-3 text-slate-600">DB 연결 실패</td><td class="px-4 py-3 text-slate-600">네트워크/방화벽/계정 정보 확인</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-mono text-red-600">E002</td><td class="px-4 py-3 text-slate-600">권한 부족</td><td class="px-4 py-3 text-slate-600">DB 계정 권한 확인 (sysadmin/db_owner)</td></tr>
+              <tr><td class="px-4 py-3 font-mono text-red-600">E003</td><td class="px-4 py-3 text-slate-600">DB명 중복</td><td class="px-4 py-3 text-slate-600">다른 DB명 사용 또는 기존 DB 삭제</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-mono text-red-600">E004</td><td class="px-4 py-3 text-slate-600">디스크 공간 부족</td><td class="px-4 py-3 text-slate-600">서버 디스크 정리 또는 증설</td></tr>
+              <tr><td class="px-4 py-3 font-mono text-red-600">E005</td><td class="px-4 py-3 text-slate-600">타임아웃</td><td class="px-4 py-3 text-slate-600">배치 크기 축소 또는 비업무 시간 재시도</td></tr>
+              <tr class="bg-slate-50"><td class="px-4 py-3 font-mono text-amber-600">W001</td><td class="px-4 py-3 text-slate-600">백업 경과 경고</td><td class="px-4 py-3 text-slate-600">작업 전 백업 권장 (24시간 이상 경과)</td></tr>
+              <tr><td class="px-4 py-3 font-mono text-amber-600">W002</td><td class="px-4 py-3 text-slate-600">대용량 작업 경고</td><td class="px-4 py-3 text-slate-600">배치 분할 실행 권장</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Appendix C: FAQ -->
+      <section id="faq" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">부록 C. FAQ</h2>
+        <p class="text-slate-600 mb-6">자주 묻는 질문과 답변입니다.</p>
+        <div class="space-y-4">
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <div class="flex items-start gap-3">
+              <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold flex-shrink-0">Q</span>
+              <div><div class="font-semibold text-slate-800 mb-2">DB 생성 후 접속이 안 됩니다.</div><div class="text-slate-600 text-sm pl-0 border-l-2 border-green-400 ml-0"><span class="font-medium text-green-700">A.</span> 생성된 DB 계정의 비밀번호를 확인하세요. 기본적으로 프로비저닝 설정에서 지정한 비밀번호가 적용됩니다. 또한, 방화벽에서 클라이언트 IP가 허용되어 있는지 확인하세요.</div></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <div class="flex items-start gap-3">
+              <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold flex-shrink-0">Q</span>
+              <div><div class="font-semibold text-slate-800 mb-2">데이터 복사 중 취소하면 어떻게 되나요?</div><div class="text-slate-600 text-sm pl-0 border-l-2 border-green-400 ml-0"><span class="font-medium text-green-700">A.</span> 배치 트랜잭션 정책인 경우 현재 진행 중인 배치까지만 커밋되고 중단됩니다. 전체 트랜잭션 정책인 경우 모든 작업이 롤백됩니다.</div></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <div class="flex items-start gap-3">
+              <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold flex-shrink-0">Q</span>
+              <div><div class="font-semibold text-slate-800 mb-2">Oracle은 왜 프로비저닝이 지원되지 않나요?</div><div class="text-slate-600 text-sm pl-0 border-l-2 border-green-400 ml-0"><span class="font-medium text-green-700">A.</span> Oracle은 라이선스 정책과 아키텍처 특성상 스키마 기반 멀티테넌트 구조를 권장합니다. 향후 버전에서 스키마 복제 방식으로 지원 예정입니다.</div></div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl p-6 border border-slate-200">
+            <div class="flex items-start gap-3">
+              <span class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 font-bold flex-shrink-0">Q</span>
+              <div><div class="font-semibold text-slate-800 mb-2">테이블 정의서 내보내기 시 일부 테이블이 누락됩니다.</div><div class="text-slate-600 text-sm pl-0 border-l-2 border-green-400 ml-0"><span class="font-medium text-green-700">A.</span> 시스템 테이블이나 권한이 없는 테이블은 제외됩니다. 또한, 200개 초과 시 자동으로 분할되므로 여러 파일을 확인하세요.</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Appendix D: Changelog -->
+      <section id="changelog" class="mb-16">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 pb-2 border-b-2 border-blue-600">부록 D. 변경 이력</h2>
+        <p class="text-slate-600 mb-6">문서 버전별 주요 변경 사항입니다.</p>
+        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50"><tr><th class="px-4 py-3 text-left font-semibold text-slate-700 w-24">버전</th><th class="px-4 py-3 text-left font-semibold text-slate-700 w-28">날짜</th><th class="px-4 py-3 text-left font-semibold text-slate-700">변경 내용</th></tr></thead>
+            <tbody>
+              <tr>
+                <td class="px-4 py-3 font-medium"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">2.0.0</span></td>
+                <td class="px-4 py-3 text-slate-600">2026-02-02</td>
+                <td class="px-4 py-3 text-slate-600"><ul class="space-y-1"><li>• 이모지를 SVG 아이콘으로 전면 교체</li><li>• 지원 범위(L1~L3) 섹션 추가</li><li>• 보안/권한/감사 섹션 강화</li><li>• FAQ 섹션 추가</li></ul></td>
+              </tr>
+              <tr class="bg-slate-50">
+                <td class="px-4 py-3 font-medium"><span class="px-2 py-1 bg-slate-200 text-slate-700 rounded text-xs font-medium">1.5.0</span></td>
+                <td class="px-4 py-3 text-slate-600">2025-12-15</td>
+                <td class="px-4 py-3 text-slate-600"><ul class="space-y-1"><li>• 데이터 복사 기능 개선</li><li>• 모니터링 대시보드 추가</li><li>• 활동 로그 검색 기능</li></ul></td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-medium"><span class="px-2 py-1 bg-slate-200 text-slate-700 rounded text-xs font-medium">1.0.0</span></td>
+                <td class="px-4 py-3 text-slate-600">2025-09-01</td>
+                <td class="px-4 py-3 text-slate-600"><ul class="space-y-1"><li>• 최초 문서 작성</li><li>• 서버 관리, DB 생성, 테이블 정의서 기능</li></ul></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="text-center text-slate-500 text-sm py-8 border-t border-slate-200">
+        <div class="flex items-center justify-center gap-4 mb-3">
+          <span class="px-3 py-1 bg-slate-100 rounded-lg">문서 버전: 2.0.0</span>
+          <span class="px-3 py-1 bg-slate-100 rounded-lg">최종 업데이트: 2026-02-02</span>
+        </div>
+        <p>© 2026 법인 DB 관리 시스템. All rights reserved.</p>
+      </footer>
+    </div>
+  </main>
+
+  <script>
+    const sidebar = document.querySelector('.sidebar');
+    const btnToggleNav = document.getElementById('btnToggleNav');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    function toggleSidebar() { sidebar.classList.toggle('open'); sidebarOverlay.classList.toggle('open'); }
+    if (btnToggleNav) btnToggleNav.addEventListener('click', toggleSidebar);
+    if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
+    document.querySelectorAll('.sidebar a[href^="#"]').forEach(a => {
+      a.addEventListener('click', () => { if (window.innerWidth <= 1024) { sidebar.classList.remove('open'); sidebarOverlay.classList.remove('open'); } });
+    });
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) { e.preventDefault(); const target = document.querySelector(this.getAttribute('href')); if (target) target.scrollIntoView({ behavior: 'smooth' }); });
+    });
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const setActive = (id) => { navLinks.forEach(link => { link.classList.toggle('active', link.getAttribute('href') === '#' + id); }); };
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter(e => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (visible) setActive(visible.target.id);
+    }, { threshold: [0.1, 0.3, 0.5], rootMargin: "-10% 0px -70% 0px" });
+    sections.forEach(sec => observer.observe(sec));
+  </script>
+</body>
+</html>

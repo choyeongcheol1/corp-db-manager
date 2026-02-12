@@ -1,0 +1,48 @@
+<!-- 최근 활동 이력 -->
+{% from "components/icons.html" import svg_icon %}
+
+{% if activities %}
+<div class="space-y-3">
+    {% for activity in activities %}
+    <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
+         data-action="{{ activity.action }}"
+         data-status="{{ activity.status }}">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
+                    {% if activity.status == 'success' %}bg-green-100 text-green-600
+                    {% elif activity.status == 'failed' %}bg-red-100 text-red-600
+                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+            {% if activity.action == 'CREATE' %}
+                {{ svg_icon('plus-circle', 'w-4 h-4') }}
+            {% elif activity.action == 'UPDATE' %}
+                {{ svg_icon('pencil-square', 'w-4 h-4') }}
+            {% elif activity.action == 'DELETE' %}
+                {{ svg_icon('trash', 'w-4 h-4') }}
+            {% elif activity.action == 'BACKUP' %}
+                {{ svg_icon('arrow-down-tray', 'w-4 h-4') }}
+            {% else %}
+                {{ svg_icon('clipboard-list', 'w-4 h-4') }}
+            {% endif %}
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+                <span class="font-medium text-gray-800">{{ activity.target_name or activity.target_id }}</span>
+                {% if activity.status == 'success' %}
+                <span class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-xs">성공</span>
+                {% elif activity.status == 'failed' %}
+                <span class="px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-xs">실패</span>
+                {% endif %}
+            </div>
+            <p class="text-sm text-gray-500 truncate">{{ activity.message or activity.action }}</p>
+            <p class="text-xs text-gray-400 mt-1">{{ activity.created_at.strftime('%m-%d %H:%M') }}</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-8 text-gray-500">
+    <div class="w-12 h-12 mx-auto bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-3">
+        {{ svg_icon('clipboard-list', 'w-6 h-6') }}
+    </div>
+    <p class="mt-2">최근 활동이 없습니다</p>
+</div>
+{% endif %}

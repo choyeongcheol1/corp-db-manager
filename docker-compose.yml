@@ -1,0 +1,43 @@
+# =============================================================================
+# Corp DB Manager Docker Compose
+# Version: v1.3.1 (2026-02-08)
+# =============================================================================
+# 사용법:
+#   docker compose up -d --build    # 빌드 및 시작
+#   docker compose logs -f app      # 로그 확인
+#   docker compose restart app      # 앱 재시작
+#   docker compose down             # 중지 및 제거
+# =============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: corp-db-manager:latest
+    container_name: corp-db-manager
+    ports:
+      - "8000:8000"
+    volumes:
+      # SQLite 메타 DB 영속화
+      - ./data:/app/data
+      # 환경 변수 파일 (읽기 전용)
+      - ./.env:/app/.env:ro
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Seoul
+      - PYTHONUNBUFFERED=1
+      - DB_HOST=host.docker.internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

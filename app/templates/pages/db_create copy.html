@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import svg_icon %}
+
+{% block title %}신규 법인 DB 생성 - 법인 DB 관리 시스템{% endblock %}
+
+{% block server_selector %}
+<div class="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg">
+    <span class="text-primary-600">{{ svg_icon('server', 'w-5 h-5') }}</span>
+    <span class="font-medium">{{ current_server.server_name if current_server else '전체 서버' }}</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 페이지 헤더 -->
+    <div class="mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+                {{ svg_icon('plus-circle', 'w-6 h-6') }}
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">신규 법인 DB 생성</h1>
+                <p class="text-gray-500 mt-1">메인 DB에서 법인 정보를 조회하여 새로운 법인 데이터베이스를 생성합니다</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 단계 표시 -->
+    <div class="mb-6">
+        <div class="flex items-center justify-center">
+            <div id="step1-indicator" class="flex items-center">
+                <div class="w-10 h-10 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">1</div>
+                <span class="ml-2 font-medium text-primary-600">법인 선택</span>
+            </div>
+            <div class="w-16 h-1 bg-gray-300 mx-4" id="step-line-1"></div>
+            <div id="step2-indicator" class="flex items-center opacity-50">
+                <div class="w-10 h-10 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center font-bold">2</div>
+                <span class="ml-2 font-medium text-gray-500">SQL 확인 및 실행</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 1단계: 법인 선택 -->
+    <div id="step1-content">
+        {% include "partials/db_create/step1_corp_select.html" %}
+    </div>
+    
+    <!-- 2단계: SQL 미리보기 -->
+    <div id="step2-content" class="hidden">
+        {% include "partials/db_create/step2_sql_preview.html" %}
+    </div>
+    
+    <!-- 결과 영역 -->
+    <div id="create-result" class="mt-8"></div>
+</div>
+
+<script>
+// 전역 변수
+let corpList = [];
+let replicationSettings = null;
+let selectedCorp = null;
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    loadReplicationSettings();
+    
+    // 소스 서버 변경 이벤트
+    document.getElementById('source-server').addEventListener('change', function() {
+        loadDatabases(this.value, 'source-db');
+    });
+});
+
+// 복제 설정 불러오기
+function loadReplicationSettings() {
+    fetch('/api/settings/replication')
+        .then(response => response.json())
+        .then(data => {
+            replicationSettings = data;
+        })
+        .catch(error => console.error('복제 설정 로드 실패:', error));
+}
+
+// 단계 인디케이터 업데이트
+function updateStepIndicators(currentStep) {
+    const steps = [1, 2];
+    
+    steps.forEach(step => {
+        const indicator = document.getElementById(`step${step}-indicator`);
+        if (!indicator) return;
+        
+        const circle = indicator.querySelector('div');
+        const text = indicator.querySelector('span');
+        
+        if (step < currentStep) {
+            indicator.classList.add('opacity-50');
+            circle.classList.remove('bg-primary-600', 'text-white', 'bg-gray-300', 'text-gray-600');
+            circle.classList.add('bg-green-500', 'text-white');
+            text.classList.remove('text-primary-600');
+            text.classList.add('text-gray-500');
+        } else if (step === currentStep) {
+            indicator.classList.remove('opacity-50');
+            circle.classList.remove('bg-gray-300', 'text-gray-600', 'bg-green-500');
+            circle.classList.add('bg-primary-600', 'text-white');
+            text.classList.remove('text-gray-500');
+            text.classList.add('text-primary-600');
+        } else {
+            indicator.classList.add('opacity-50');
+            circle.classList.remove('bg-primary-600', 'text-white', 'bg-green-500');
+            circle.classList.add('bg-gray-300', 'text-gray-600');
+            text.classList.remove('text-primary-600');
+            text.classList.add('text-gray-500');
+        }
+    });
+    
+    const stepLine1 = document.getElementById('step-line-1');
+    if (stepLine1) {
+        stepLine1.classList.toggle('bg-primary-600', currentStep > 1);
+        stepLine1.classList.toggle('bg-gray-300', currentStep <= 1);
+    }
+}
+
+// 단계 이동 함수
+function goToStep1() {
+    document.getElementById('step1-content').classList.remove('hidden');
+    document.getElementById('step2-content').classList.add('hidden');
+    updateStepIndicators(1);
+}
+
+function goToStep2() {
+    document.getElementById('step1-content').classList.add('hidden');
+    document.getElementById('step2-content').classList.remove('hidden');
+    updateStepIndicators(2);
+}
+
+function goBack() {
+    goToStep1();
+}
+
+// DB 목록 로드
+function loadDatabases(serverId, selectId) {
+    const select = document.getElementById(selectId);
+    if (!serverId) {
+        select.innerHTML = '<option value="">먼저 서버를 선택하세요</option>';
+        return;
+    }
+    
+    select.innerHTML = '<option value="">로딩 중...</option>';
+    
+    fetch('/partials/servers/' + serverId + '/databases')
+        .then(response => response.text())
+        .then(html => {
+            select.innerHTML = '<option value="">DB를 선택하세요</option>' + html;
+        });
+}
+
+// 토스트 메시지
+function showToast(message, type = 'info') {
+    // 기존 토스트 제거
+    const existingToast = document.getElementById('toast-message');
+    if (existingToast) existingToast.remove();
+    
+    const toast = document.createElement('div');
+    toast.id = 'toast-message';
+    toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg text-white z-50 flex items-center gap-2 shadow-lg transition-all duration-300 ${
+        type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+    }`;
+    
+    const icon = type === 'success' 
+        ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+        : type === 'error'
+        ? '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>'
+        : '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+    
+    toast.innerHTML = icon + '<span>' + message + '</span>';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+{% endblock %}

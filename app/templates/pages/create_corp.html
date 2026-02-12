@@ -1,0 +1,754 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import svg_icon %}
+
+{% block title %}신규 법인 생성 - 법인 DB 관리 시스템{% endblock %}
+
+{% block server_selector %}
+<div class="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg">
+    <span class="text-primary-600">{{ svg_icon('server', 'w-5 h-5') }}</span>
+    <span class="font-medium">{{ current_server.server_name if current_server else '전체 서버' }}</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 페이지 헤더 -->
+    <div class="mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+                {{ svg_icon('plus-circle', 'w-6 h-6') }}
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">신규 법인 DB 생성</h1>
+                <p class="text-gray-500 mt-1">메인 DB에서 법인 정보를 조회하여 새로운 법인 데이터베이스를 생성합니다</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 단계 표시 -->
+    <div class="mb-6">
+        <div class="flex items-center justify-center">
+            <div id="step1-indicator" class="flex items-center">
+                <div class="w-10 h-10 bg-primary-600 text-white rounded-full flex items-center justify-center font-bold">1</div>
+                <span class="ml-2 font-medium text-primary-600">법인 선택</span>
+            </div>
+            <div class="w-16 h-1 bg-gray-300 mx-4" id="step-line"></div>
+            <div id="step2-indicator" class="flex items-center opacity-50">
+                <div class="w-10 h-10 bg-gray-300 text-gray-600 rounded-full flex items-center justify-center font-bold">2</div>
+                <span class="ml-2 font-medium text-gray-500">SQL 확인</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 1단계: 법인 선택 -->
+    <div id="step1-content" class="space-y-6">
+        
+        <!-- 법인 정보 조회 설정 -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                            {{ svg_icon('circle-stack', 'w-5 h-5') }}
+                            법인 정보 조회 (메인 DB)
+                        </h2>
+                        <p class="text-primary-100 text-sm mt-1">법인 정보가 저장된 메인 DB 연결 설정</p>
+                    </div>
+                    <button type="button" onclick="loadFromSettings()" 
+                            class="px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg hover:bg-white/30 transition flex items-center gap-1">
+                        {{ svg_icon('cog-6-tooth', 'w-4 h-4') }}
+                        설정에서 불러오기
+                    </button>
+                </div>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    <!-- 서버 선택 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">서버 *</label>
+                        <select id="main-server" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition text-sm">
+                            <option value="">서버 선택</option>
+                            {% for server in servers %}
+                            <option value="{{ server.id }}">{{ server.server_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <!-- DB명 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">DB명 *</label>
+                        <input type="text" id="main-db-name" placeholder="예: ERP_MAIN"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition text-sm">
+                    </div>
+                    <!-- 테이블명 -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">테이블명 *</label>
+                        <input type="text" id="main-table-name" placeholder="예: COMS_CMPNY"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition text-sm">
+                    </div>
+                    <!-- 조회 버튼 -->
+                    <div class="flex items-end">
+                        <button type="button" onclick="fetchCorpList()" 
+                                class="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center justify-center gap-2 text-sm">
+                            {{ svg_icon('magnifying-glass', 'w-4 h-4') }}
+                            법인 목록 조회
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 컬럼 매핑 (접이식) -->
+                <details class="border border-gray-200 rounded-lg">
+                    <summary class="px-4 py-2 bg-gray-50 cursor-pointer text-sm font-medium text-gray-700 hover:bg-gray-100">
+                        컬럼 매핑 설정 (클릭하여 펼치기)
+                    </summary>
+                    <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">법인코드 컬럼</label>
+                            <input type="text" id="col-corp-code" value="CORP_CD" 
+                                   class="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">법인명 컬럼</label>
+                            <input type="text" id="col-corp-name" value="CORP_NM"
+                                   class="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">사업자번호 컬럼</label>
+                            <input type="text" id="col-biz-no" value="SAUPNO"
+                                   class="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">회계DB명 컬럼</label>
+                            <input type="text" id="col-acc-db" value="ACC_DB_NAME"
+                                   class="w-full px-3 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:border-primary-500">
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+        
+        <!-- 법인 목록 -->
+        <div id="corp-list-section" class="hidden">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <h3 class="font-semibold text-gray-800 flex items-center gap-2">
+                        {{ svg_icon('building-office-2', 'w-5 h-5 text-primary-600') }}
+                        조회된 법인 목록
+                        <span id="corp-count" class="text-sm font-normal text-gray-500"></span>
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <label class="flex items-center gap-2 text-sm text-gray-600">
+                            <input type="checkbox" id="show-only-new" class="rounded text-primary-600" onchange="filterCorpList()">
+                            DB 미생성 법인만 표시
+                        </label>
+                        <input type="text" id="corp-search" placeholder="검색..."
+                               class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-primary-500"
+                               onkeyup="filterCorpList()">
+                    </div>
+                </div>
+                <div id="corp-list-container" class="max-h-64 overflow-y-auto">
+                    <!-- 법인 목록이 여기에 표시됨 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 소스/타겟 설정 + 선택된 법인 정보 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 참조 (소스) 설정 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="text-blue-500">{{ svg_icon('arrow-up-tray', 'w-5 h-5') }}</span>
+                    참조 (소스)
+                </h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">서버 선택 *</label>
+                        <select id="source-server" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                            <option value="">서버를 선택하세요</option>
+                            {% for server in servers %}
+                            <option value="{{ server.id }}">{{ server.server_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">템플릿 DB *</label>
+                        <select id="source-db" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                            <option value="">먼저 서버를 선택하세요</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">스키마와 기초 데이터가 복제됩니다</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 대상 (타겟) 설정 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="text-green-500">{{ svg_icon('arrow-down-tray', 'w-5 h-5') }}</span>
+                    대상 (타겟)
+                </h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">서버 선택 *</label>
+                        <select id="target-server" required
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 transition">
+                            <option value="">서버를 선택하세요</option>
+                            {% for server in servers %}
+                            <option value="{{ server.id }}">{{ server.server_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">생성될 DB명</label>
+                        <input type="text" id="target-db-name" readonly
+                               class="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                               placeholder="법인 선택 시 자동 입력">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 선택된 법인 정보 -->
+            <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <span class="text-primary-600">{{ svg_icon('building-office', 'w-5 h-5') }}</span>
+                    선택된 법인 정보
+                </h3>
+                
+                <div id="selected-corp-info" class="space-y-3">
+                    <div class="text-center py-8 text-gray-400">
+                        <div class="w-12 h-12 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-2">
+                            {{ svg_icon('cursor-arrow-rays', 'w-6 h-6') }}
+                        </div>
+                        <p class="text-sm">위 목록에서 법인을 선택하세요</p>
+                    </div>
+                </div>
+                
+                <!-- 숨겨진 입력 필드 -->
+                <input type="hidden" id="corp-code">
+                <input type="hidden" id="corp-name">
+                <input type="hidden" id="biz-no">
+                <input type="hidden" id="acc-db-name">
+            </div>
+        </div>
+        
+        <!-- 하단 버튼 -->
+        <div class="flex justify-center gap-4">
+            <a href="/servers" class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                취소
+            </a>
+            <button type="button" onclick="showSqlPreview()" id="preview-btn" disabled
+                    class="px-8 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                {{ svg_icon('document-text', 'w-5 h-5') }}
+                SQL 미리보기
+            </button>
+        </div>
+    </div>
+    
+    <!-- 2단계: SQL 미리보기/수정 -->
+    <div id="step2-content" class="hidden">
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                    <span class="text-primary-600">{{ svg_icon('code-bracket', 'w-5 h-5') }}</span>
+                    생성 SQL 미리보기
+                </h3>
+                <button onclick="downloadSql()" 
+                        class="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 flex items-center gap-1">
+                    {{ svg_icon('arrow-down-tray', 'w-4 h-4') }}
+                    SQL 다운로드
+                </button>
+            </div>
+            
+            <p class="text-sm text-gray-500 mb-4">SQL을 확인하고 필요시 수정하세요. 수정 후 [실행] 버튼을 클릭하면 DB가 생성됩니다.</p>
+            
+            <!-- SQL 편집기 -->
+            <div class="border border-gray-300 rounded-lg overflow-hidden">
+                <textarea id="sql-editor"
+                          class="w-full h-96 p-4 font-mono text-sm bg-gray-50 focus:outline-none focus:bg-white"
+                          spellcheck="false"></textarea>
+            </div>
+            
+            <!-- 요약 정보 -->
+            <div id="sql-summary" class="mt-4 p-4 bg-blue-50 rounded-lg">
+            </div>
+        </div>
+        
+        <!-- 하단 버튼 -->
+        <div class="flex justify-center gap-4 mt-8">
+            <button type="button" onclick="goBack()"
+                    class="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center gap-2">
+                {{ svg_icon('arrow-left', 'w-5 h-5') }}
+                이전
+            </button>
+            <button type="button" onclick="executeSql()" id="execute-btn"
+                    class="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2">
+                {{ svg_icon('rocket-launch', 'w-5 h-5') }}
+                실행
+            </button>
+        </div>
+    </div>
+    
+    <!-- 결과 영역 -->
+    <div id="create-result" class="mt-8"></div>
+</div>
+
+<script>
+// 전역 변수
+let corpList = [];
+let replicationSettings = null;
+let selectedCorp = null;
+
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    loadReplicationSettings();
+    
+    // 소스 서버 변경 이벤트
+    document.getElementById('source-server').addEventListener('change', function() {
+        loadDatabases(this.value, 'source-db');
+    });
+});
+
+// 복제 설정 불러오기 (경로 정보만 사용)
+function loadReplicationSettings() {
+    fetch('/api/settings/replication')
+        .then(response => response.json())
+        .then(data => {
+            replicationSettings = data;
+        })
+        .catch(error => console.error('복제 설정 로드 실패:', error));
+}
+
+// 설정에서 메인 DB 정보 불러오기
+function loadFromSettings() {
+    fetch('/api/settings/main-db')
+        .then(response => response.json())
+        .then(data => {
+            if (data.main_db_server_id) {
+                document.getElementById('main-server').value = data.main_db_server_id;
+            }
+            document.getElementById('main-db-name').value = data.main_db_name || '';
+            document.getElementById('main-table-name').value = data.corp_table_name || 'COMS_CMPNY';
+            document.getElementById('col-corp-code').value = data.corp_code_column || 'CORP_CD';
+            document.getElementById('col-corp-name').value = data.corp_name_column || 'CORP_NM';
+            document.getElementById('col-biz-no').value = data.biz_no_column || 'SAUPNO';
+            document.getElementById('col-acc-db').value = data.acc_db_name_column || 'ACC_DB_NAME';
+            
+            // 알림
+            showToast('설정을 불러왔습니다.', 'success');
+        })
+        .catch(error => {
+            showToast('설정 불러오기 실패: ' + error, 'error');
+        });
+}
+
+// 법인 목록 조회
+function fetchCorpList() {
+    const serverId = document.getElementById('main-server').value;
+    const dbName = document.getElementById('main-db-name').value.trim();
+    const tableName = document.getElementById('main-table-name').value.trim();
+    
+    if (!serverId || !dbName || !tableName) {
+        alert('서버, DB명, 테이블명을 모두 입력하세요.');
+        return;
+    }
+    
+    const columns = {
+        corp_code_col: document.getElementById('col-corp-code').value.trim(),
+        corp_name_col: document.getElementById('col-corp-name').value.trim(),
+        biz_no_col: document.getElementById('col-biz-no').value.trim(),
+        acc_db_col: document.getElementById('col-acc-db').value.trim()
+    };
+    
+    // 로딩 표시
+    document.getElementById('corp-list-section').classList.remove('hidden');
+    document.getElementById('corp-list-container').innerHTML = `
+        <div class="p-8 text-center">
+            <div class="inline-block w-8 h-8 border-4 border-primary-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-gray-500">법인 정보를 조회하는 중...</p>
+        </div>
+    `;
+    
+    // API 호출
+    fetch('/api/corps/fetch-from-main-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            server_id: parseInt(serverId),
+            db_name: dbName,
+            table_name: tableName,
+            ...columns
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById('corp-list-container').innerHTML = `
+                <div class="p-8 text-center text-red-500">
+                    <p>오류: ${data.error}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        corpList = data.corps || [];
+        renderCorpList();
+    })
+    .catch(error => {
+        document.getElementById('corp-list-container').innerHTML = `
+            <div class="p-8 text-center text-red-500">
+                <p>조회 실패: ${error}</p>
+            </div>
+        `;
+    });
+}
+
+// 법인 목록 렌더링
+function renderCorpList() {
+    const container = document.getElementById('corp-list-container');
+    const showOnlyNew = document.getElementById('show-only-new').checked;
+    const searchKeyword = document.getElementById('corp-search').value.toLowerCase();
+    
+    let filteredList = corpList.filter(corp => {
+        // DB 미생성 필터
+        if (showOnlyNew && corp.has_db) return false;
+        // 검색어 필터
+        if (searchKeyword) {
+            const searchText = `${corp.corp_code} ${corp.corp_name} ${corp.biz_no || ''}`.toLowerCase();
+            if (!searchText.includes(searchKeyword)) return false;
+        }
+        return true;
+    });
+    
+    document.getElementById('corp-count').textContent = `(${filteredList.length}/${corpList.length}건)`;
+    
+    if (filteredList.length === 0) {
+        container.innerHTML = `
+            <div class="p-8 text-center text-gray-500">
+                <p>조건에 맞는 법인이 없습니다.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = `
+        <table class="w-full text-sm">
+            <thead class="bg-gray-100 sticky top-0 z-10 shadow-sm">
+                <tr>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-700 w-10 bg-gray-100"></th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-700 bg-gray-100">법인코드</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-700 bg-gray-100">법인명</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-700 bg-gray-100">사업자번호</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-700 bg-gray-100">회계DB명</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-700 bg-gray-100">상태</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                ${filteredList.map((corp, idx) => `
+                    <tr class="hover:bg-gray-50 cursor-pointer ${corp.has_db ? 'opacity-50' : ''}" 
+                        onclick="${corp.has_db ? '' : `selectCorp(${idx})`}">
+                        <td class="px-4 py-2">
+                            <input type="radio" name="corp-select" value="${idx}" 
+                                   ${corp.has_db ? 'disabled' : ''} 
+                                   ${selectedCorp?.corp_code === corp.corp_code ? 'checked' : ''}
+                                   onchange="selectCorp(${idx})"
+                                   class="text-primary-600">
+                        </td>
+                        <td class="px-4 py-2 font-mono">${corp.corp_code}</td>
+                        <td class="px-4 py-2 font-medium">${corp.corp_name}</td>
+                        <td class="px-4 py-2 text-gray-600">${corp.biz_no || '-'}</td>
+                        <td class="px-4 py-2 font-mono text-gray-600">${corp.acc_db_name || '-'}</td>
+                        <td class="px-4 py-2 text-center">
+                            ${corp.has_db 
+                                ? '<span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded">생성됨</span>'
+                                : '<span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded">미생성</span>'
+                            }
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+// 법인 목록 필터링
+function filterCorpList() {
+    renderCorpList();
+}
+
+// 법인 선택
+function selectCorp(index) {
+    const corp = corpList.filter(c => {
+        const showOnlyNew = document.getElementById('show-only-new').checked;
+        const searchKeyword = document.getElementById('corp-search').value.toLowerCase();
+        if (showOnlyNew && c.has_db) return false;
+        if (searchKeyword) {
+            const searchText = `${c.corp_code} ${c.corp_name} ${c.biz_no || ''}`.toLowerCase();
+            if (!searchText.includes(searchKeyword)) return false;
+        }
+        return true;
+    })[index];
+    
+    if (!corp || corp.has_db) return;
+    
+    selectedCorp = corp;
+    
+    // 숨겨진 필드에 값 설정
+    document.getElementById('corp-code').value = corp.corp_code;
+    document.getElementById('corp-name').value = corp.corp_name;
+    document.getElementById('biz-no').value = corp.biz_no || '';
+    document.getElementById('acc-db-name').value = corp.acc_db_name || '';
+    
+    // 생성될 DB명 표시
+    document.getElementById('target-db-name').value = corp.acc_db_name || `ACC_${corp.corp_code}`;
+    
+    // 선택된 법인 정보 표시
+    document.getElementById('selected-corp-info').innerHTML = `
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-500">법인코드</span>
+                <span class="font-mono font-medium">${corp.corp_code}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-500">법인명</span>
+                <span class="font-medium">${corp.corp_name}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b border-gray-100">
+                <span class="text-gray-500">사업자번호</span>
+                <span>${corp.biz_no || '-'}</span>
+            </div>
+            <div class="flex justify-between py-2">
+                <span class="text-gray-500">생성 DB명</span>
+                <span class="font-mono font-medium text-primary-600">${corp.acc_db_name || `ACC_${corp.corp_code}`}</span>
+            </div>
+        </div>
+    `;
+    
+    // 미리보기 버튼 활성화
+    document.getElementById('preview-btn').disabled = false;
+    
+    // 라디오 버튼 체크 상태 업데이트
+    renderCorpList();
+}
+
+// DB 목록 로드
+function loadDatabases(serverId, selectId) {
+    const select = document.getElementById(selectId);
+    if (!serverId) {
+        select.innerHTML = '<option value="">먼저 서버를 선택하세요</option>';
+        return;
+    }
+    
+    select.innerHTML = '<option value="">로딩 중...</option>';
+    
+    fetch('/partials/servers/' + serverId + '/databases')
+        .then(response => response.text())
+        .then(html => {
+            select.innerHTML = '<option value="">DB를 선택하세요</option>' + html;
+        });
+}
+
+// SQL 미리보기
+function showSqlPreview() {
+    const sourceServer = document.getElementById('source-server').value;
+    const sourceDb = document.getElementById('source-db').value;
+    const targetServer = document.getElementById('target-server').value;
+    const corpCode = document.getElementById('corp-code').value;
+    const corpName = document.getElementById('corp-name').value;
+    const bizNo = document.getElementById('biz-no').value;
+    const accDbName = document.getElementById('acc-db-name').value;
+    
+    // 유효성 검사
+    if (!sourceServer || !sourceDb) {
+        alert('소스 서버와 템플릿 DB를 선택하세요.');
+        return;
+    }
+    if (!targetServer) {
+        alert('대상 서버를 선택하세요.');
+        return;
+    }
+    if (!corpCode || !corpName) {
+        alert('법인을 선택하세요.');
+        return;
+    }
+    
+    // 요청 데이터
+    const requestBody = {
+        source_server_id: parseInt(sourceServer),
+        source_db_name: sourceDb,
+        target_server_id: parseInt(targetServer),
+        corp_code: corpCode,
+        corp_name: corpName,
+        biz_no: bizNo,
+        acc_db_name: accDbName
+    };
+    
+    // 복제 설정에서 경로 정보만 추가
+    if (replicationSettings) {
+        requestBody.db_data_path = replicationSettings.db_data_path;
+        requestBody.db_log_path = replicationSettings.db_log_path;
+        requestBody.initial_db_size_mb = replicationSettings.initial_db_size_mb;
+        requestBody.initial_log_size_mb = replicationSettings.initial_log_size_mb;
+        requestBody.file_growth_mb = replicationSettings.file_growth_mb;
+    }
+    
+    fetch('/partials/corps/generate-sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert('오류: ' + data.error);
+            return;
+        }
+        
+        // SQL 표시
+        document.getElementById('sql-editor').value = data.sql;
+        
+        // 요약 정보 표시
+        document.getElementById('sql-summary').innerHTML = `
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <span class="text-blue-600">소스 DB:</span>
+                    <span class="font-medium">${data.source_db}</span>
+                </div>
+                <div>
+                    <span class="text-blue-600">대상 DB:</span>
+                    <span class="font-medium">${data.target_db}</span>
+                </div>
+                <div>
+                    <span class="text-blue-600">법인코드:</span>
+                    <span class="font-medium">${data.corp_code}</span>
+                </div>
+                <div>
+                    <span class="text-blue-600">사용자:</span>
+                    <span class="font-medium">${data.db_user}</span>
+                </div>
+            </div>
+        `;
+        
+        // 2단계로 전환
+        goToStep2();
+    })
+    .catch(error => {
+        alert('SQL 생성 중 오류가 발생했습니다: ' + error);
+    });
+}
+
+// 단계 전환
+function goToStep2() {
+    document.getElementById('step1-content').classList.add('hidden');
+    document.getElementById('step2-content').classList.remove('hidden');
+    
+    document.getElementById('step1-indicator').classList.add('opacity-50');
+    document.getElementById('step1-indicator').querySelector('div').classList.remove('bg-primary-600', 'text-white');
+    document.getElementById('step1-indicator').querySelector('div').classList.add('bg-gray-300', 'text-gray-600');
+    document.getElementById('step1-indicator').querySelector('span').classList.remove('text-primary-600');
+    document.getElementById('step1-indicator').querySelector('span').classList.add('text-gray-500');
+    
+    document.getElementById('step2-indicator').classList.remove('opacity-50');
+    document.getElementById('step2-indicator').querySelector('div').classList.remove('bg-gray-300', 'text-gray-600');
+    document.getElementById('step2-indicator').querySelector('div').classList.add('bg-primary-600', 'text-white');
+    document.getElementById('step2-indicator').querySelector('span').classList.remove('text-gray-500');
+    document.getElementById('step2-indicator').querySelector('span').classList.add('text-primary-600');
+    
+    document.getElementById('step-line').classList.remove('bg-gray-300');
+    document.getElementById('step-line').classList.add('bg-primary-600');
+}
+
+function goBack() {
+    document.getElementById('step1-content').classList.remove('hidden');
+    document.getElementById('step2-content').classList.add('hidden');
+    
+    document.getElementById('step1-indicator').classList.remove('opacity-50');
+    document.getElementById('step1-indicator').querySelector('div').classList.add('bg-primary-600', 'text-white');
+    document.getElementById('step1-indicator').querySelector('div').classList.remove('bg-gray-300', 'text-gray-600');
+    document.getElementById('step1-indicator').querySelector('span').classList.add('text-primary-600');
+    document.getElementById('step1-indicator').querySelector('span').classList.remove('text-gray-500');
+    
+    document.getElementById('step2-indicator').classList.add('opacity-50');
+    document.getElementById('step2-indicator').querySelector('div').classList.add('bg-gray-300', 'text-gray-600');
+    document.getElementById('step2-indicator').querySelector('div').classList.remove('bg-primary-600', 'text-white');
+    document.getElementById('step2-indicator').querySelector('span').classList.add('text-gray-500');
+    document.getElementById('step2-indicator').querySelector('span').classList.remove('text-primary-600');
+    
+    document.getElementById('step-line').classList.add('bg-gray-300');
+    document.getElementById('step-line').classList.remove('bg-primary-600');
+}
+
+// SQL 실행
+function executeSql() {
+    const sql = document.getElementById('sql-editor').value;
+    const sourceServer = document.getElementById('source-server').value;
+    const sourceDb = document.getElementById('source-db').value;
+    const targetServer = document.getElementById('target-server').value;
+    const corpCode = document.getElementById('corp-code').value;
+    const corpName = document.getElementById('corp-name').value;
+    const bizNo = document.getElementById('biz-no').value;
+    
+    if (!confirm('SQL을 실행하여 DB를 생성하시겠습니까?')) {
+        return;
+    }
+    
+    const executeBtn = document.getElementById('execute-btn');
+    executeBtn.disabled = true;
+    executeBtn.innerHTML = '<svg class="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> 생성 중...';
+    
+    fetch('/partials/corps/execute-sql', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            source_server_id: parseInt(sourceServer),
+            source_db_name: sourceDb,
+            target_server_id: parseInt(targetServer),
+            corp_code: corpCode,
+            corp_name: corpName,
+            biz_no: bizNo,
+            sql: sql
+        })
+    })
+    .then(response => response.text())
+    .then(html => {
+        document.getElementById('create-result').innerHTML = html;
+        document.getElementById('step2-content').classList.add('hidden');
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/></svg> 실행';
+    })
+    .catch(error => {
+        alert('실행 중 오류가 발생했습니다: ' + error);
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/></svg> 실행';
+    });
+}
+
+// SQL 다운로드
+function downloadSql() {
+    const sql = document.getElementById('sql-editor').value;
+    const corpCode = document.getElementById('corp-code').value;
+    
+    const blob = new Blob([sql], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `create_${corpCode}_db.sql`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// 토스트 메시지
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-lg text-white z-50 ${
+        type === 'success' ? 'bg-green-600' : type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+{% endblock %}

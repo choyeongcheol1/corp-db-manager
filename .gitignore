@@ -1,0 +1,80 @@
+# ============================
+# Python
+# ============================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ============================
+# Virtual Environment
+# ============================
+venv/
+.venv/
+env/
+ENV/
+
+# ============================
+# Environment Variables
+# ============================
+.env
+.env.local
+.env.production
+
+# ============================
+# Database (local/dev)
+# ============================
+*.db
+*.sqlite3
+app/data/*.db
+
+# ============================
+# IDE / Editor
+# ============================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ============================
+# OS
+# ============================
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# ============================
+# Node (if any)
+# ============================
+node_modules/
+package-lock.json
+
+# ============================
+# Logs
+# ============================
+*.log
+logs/
+
+# ============================
+# Docker (local overrides)
+# ============================
+docker-compose.override.yml
+
+# ============================
+# Misc
+# ============================
+*.bak
+*.tmp
+*.temp
+.cache/

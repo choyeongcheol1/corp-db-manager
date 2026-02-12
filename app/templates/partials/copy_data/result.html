@@ -1,0 +1,145 @@
+<!-- 데이터 복사 결과 -->
+<div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+    <!-- 결과 헤더 -->
+    <div class="flex items-center gap-4 mb-6">
+        {% if fail_count == 0 and results | selectattr('status', 'equalto', 'warning') | list | length == 0 %}
+        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-3xl">✅</span>
+        </div>
+        <div>
+            <h3 class="text-xl font-bold text-green-700">복사 완료!</h3>
+            <p class="text-gray-500">모든 테이블이 성공적으로 복사되었습니다</p>
+        </div>
+        {% elif fail_count > 0 %}
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-3xl">❌</span>
+        </div>
+        <div>
+            <h3 class="text-xl font-bold text-red-700">복사 완료 (일부 실패)</h3>
+            <p class="text-gray-500">{{ fail_count }}개 테이블에서 오류가 발생했습니다</p>
+        </div>
+        {% else %}
+        <div class="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <span class="text-3xl">⚠️</span>
+        </div>
+        <div>
+            <h3 class="text-xl font-bold text-yellow-700">복사 완료 (일부 건너뜀)</h3>
+            <p class="text-gray-500">일부 행이 건너뛰어졌습니다 (중복 키 등)</p>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- 요약 정보 -->
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div class="bg-blue-50 rounded-lg p-4 text-center">
+            <p class="text-sm text-blue-600">소스</p>
+            <p class="font-semibold text-blue-800 truncate" title="{{ source_db }}">{{ source_db }}</p>
+            <p class="text-xs text-blue-500">{{ source_server.server_name }}</p>
+        </div>
+        <div class="bg-green-50 rounded-lg p-4 text-center">
+            <p class="text-sm text-green-600">대상</p>
+            <p class="font-semibold text-green-800 truncate" title="{{ target_db }}">{{ target_db }}</p>
+            <p class="text-xs text-green-500">{{ target_server.server_name }}</p>
+        </div>
+        <div class="bg-purple-50 rounded-lg p-4 text-center">
+            <p class="text-sm text-purple-600">복사된 행</p>
+            <p class="font-semibold text-purple-800">{{ "{:,}".format(total_rows) }}</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4 text-center">
+            <p class="text-sm text-gray-600">소요 시간</p>
+            <p class="font-semibold text-gray-800">{{ elapsed }}초</p>
+        </div>
+        <div class="bg-indigo-50 rounded-lg p-4 text-center">
+            <p class="text-sm text-indigo-600">복사 모드</p>
+            <p class="font-semibold text-indigo-800">
+                {% if copy_mode == 'truncate' %}TRUNCATE
+                {% elif copy_mode == 'delete' %}DELETE
+                {% else %}APPEND
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    <!-- 상세 결과 -->
+    <div class="border border-gray-200 rounded-lg overflow-hidden">
+        <div class="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <span class="font-medium text-gray-700">상세 결과</span>
+            <span class="text-sm text-gray-500 ml-2">
+                (성공: <span class="text-green-600">{{ success_count }}</span>,
+                실패: <span class="text-red-600">{{ fail_count }}</span>,
+                건너뜀: <span class="text-gray-500">{{ results | selectattr('status', 'equalto', 'skipped') | list | length }}</span>
+                {% set warning_count = results | selectattr('status', 'equalto', 'warning') | list | length %}
+                {% if warning_count > 0 %}
+                , 경고: <span class="text-yellow-600">{{ warning_count }}</span>
+                {% endif %})
+            </span>
+        </div>
+        <div class="max-h-96 overflow-y-auto">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 sticky top-0">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 w-16">상태</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">테이블</th>
+                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 w-24">행 수</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500">메시지</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for result in results %}
+                    <tr class="{% if result.status == 'error' %}bg-red-50{% elif result.status == 'skipped' %}bg-gray-50{% elif result.status == 'warning' %}bg-yellow-50{% endif %}">
+                        <td class="px-4 py-2">
+                            {% if result.status == 'success' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">성공</span>
+                            {% elif result.status == 'warning' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">경고</span>
+                            {% elif result.status == 'skipped' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">건너뜀</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">실패</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-2 font-medium text-gray-800">{{ result.table_name }}</td>
+                        <td class="px-4 py-2 text-right text-gray-600">{{ "{:,}".format(result.row_count) }}</td>
+                        <td class="px-4 py-2 text-gray-500">
+                            <span class="truncate block max-w-xs" title="{{ result.message }}">{{ result.message }}</span>
+                            {# #6: 에러 샘플 표시 #}
+                            {% if result.error_samples is defined and result.error_samples %}
+                            <details class="mt-1">
+                                <summary class="text-xs text-red-500 cursor-pointer hover:underline">에러 상세 ({{ result.error_samples | length }}건)</summary>
+                                <div class="mt-1 space-y-1">
+                                    {% for err in result.error_samples %}
+                                    <div class="text-xs text-red-400 bg-red-50 px-2 py-1 rounded break-all">{{ err }}</div>
+                                    {% endfor %}
+                                </div>
+                            </details>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- 버튼 -->
+    <div class="mt-6 flex justify-center gap-4">
+        <a href="/data-copy" 
+           hx-get="/data-copy"
+           hx-target="#page-content"
+           hx-select="#page-content"
+           hx-swap="outerHTML"
+           hx-push-url="true"
+           class="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">
+            새로운 복사
+        </a>
+        <a href="/db/list" 
+           hx-get="/db/list"
+           hx-target="#page-content"
+           hx-select="#page-content"
+           hx-swap="outerHTML"
+           hx-push-url="true"
+           class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">
+            DB 목록
+        </a>
+    </div>
+</div>

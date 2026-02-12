@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import svg_icon %}
+
+{% block title %}사용자 관리 - DB 관리 시스템{% endblock %}
+
+{% block content %}
+<div x-data="userManagement()" x-init="init()">
+    <!-- 페이지 헤더 -->
+    <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+                {{ svg_icon('users', 'w-6 h-6') }}
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">사용자 관리</h1>
+                <p class="text-gray-500 mt-1">시스템 사용자 계정을 관리합니다</p>
+            </div>
+        </div>
+        <button @click="openUserModal()"
+                class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center gap-2">
+            {{ svg_icon('plus-circle', 'w-5 h-5') }}
+            사용자 추가
+        </button>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:bg-gray-50 transition"
+             @click="currentTab = 'all'; loadUsers()">
+            <div class="text-2xl font-bold text-gray-800" x-text="stats.total">0</div>
+            <div class="text-sm text-gray-500">전체 사용자</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-yellow-200 cursor-pointer hover:bg-yellow-50 transition"
+             @click="currentTab = 'pending'; loadUsers()">
+            <div class="text-2xl font-bold text-yellow-600" x-text="stats.pending">0</div>
+            <div class="text-sm text-gray-500">승인 대기</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-green-200 cursor-pointer hover:bg-green-50 transition"
+             @click="currentTab = 'approved'; loadUsers()">
+            <div class="text-2xl font-bold text-green-600" x-text="stats.approved">0</div>
+            <div class="text-sm text-gray-500">승인됨</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-red-200 cursor-pointer hover:bg-red-50 transition"
+             @click="currentTab = 'rejected'; loadUsers()">
+            <div class="text-2xl font-bold text-red-600" x-text="stats.rejected">0</div>
+            <div class="text-sm text-gray-500">거부됨</div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-gray-200 cursor-pointer hover:bg-gray-50 transition"
+             @click="currentTab = 'email_pending'; loadUsers()">
+            <div class="text-2xl font-bold text-gray-600" x-text="stats.email_pending">0</div>
+            <div class="text-sm text-gray-500">이메일 대기</div>
+        </div>
+    </div>
+
+    <!-- 역할 설명 카드 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-4 border border-gray-200">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                    {{ svg_icon('user', 'w-5 h-5 text-red-600') }}
+                </div>
+                <div>
+                    <span class="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">admin</span>
+                    <p class="text-sm text-gray-600 mt-1">전체 권한 (서버, 사용자, 법인 관리)</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-gray-200">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    {{ svg_icon('user', 'w-5 h-5 text-blue-600') }}
+                </div>
+                <div>
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-medium">operator</span>
+                    <p class="text-sm text-gray-600 mt-1">법인 생성, 데이터 복사, 조회</p>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-xl p-4 border border-gray-200">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                    {{ svg_icon('user', 'w-5 h-5 text-gray-600') }}
+                </div>
+                <div>
+                    <span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">viewer</span>
+                    <p class="text-sm text-gray-600 mt-1">조회만 가능</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 탭 메뉴 -->
+    <div class="flex gap-2 mb-4 border-b border-gray-200">
+        <button @click="currentTab = 'all'; loadUsers()"
+                :class="currentTab === 'all' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                class="px-4 py-2 border-b-2 font-medium transition">전체</button>
+        <button @click="currentTab = 'pending'; loadUsers()"
+                :class="currentTab === 'pending' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                class="px-4 py-2 border-b-2 font-medium transition flex items-center gap-2">
+            승인 대기
+            <span x-show="stats.pending > 0" class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs" x-text="stats.pending"></span>
+        </button>
+        <button @click="currentTab = 'approved'; loadUsers()"
+                :class="currentTab === 'approved' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                class="px-4 py-2 border-b-2 font-medium transition">승인됨</button>
+        <button @click="currentTab = 'rejected'; loadUsers()"
+                :class="currentTab === 'rejected' ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+                class="px-4 py-2 border-b-2 font-medium transition">거부됨</button>
+    </div>
+
+    <!-- 로딩 표시 -->
+    <div x-show="loading" class="bg-white rounded-xl p-12 shadow-sm border border-gray-100">
+        <div class="flex justify-center items-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+            <span class="ml-3 text-gray-500">로딩 중...</span>
+        </div>
+    </div>
+
+    <!-- 사용자 목록 테이블 -->
+    <div x-show="!loading" x-cloak class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">사용자</th>
+                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">연락처</th>
+                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">역할</th>
+                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">상태</th>
+                        <th class="px-6 py-4 text-left text-sm font-medium text-gray-600">가입일</th>
+                        <th class="px-6 py-4 text-center text-sm font-medium text-gray-600">관리</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <template x-for="user in users" :key="user.id">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full flex items-center justify-center"
+                                         :class="{'bg-red-100 text-red-600': user.role === 'admin', 'bg-blue-100 text-blue-600': user.role === 'operator', 'bg-gray-100 text-gray-600': user.role === 'viewer'}">
+                                        {{ svg_icon('user', 'w-5 h-5') }}
+                                    </div>
+                                    <div>
+                                        <div class="font-medium text-gray-900" x-text="user.name"></div>
+                                        <div class="text-sm text-gray-500" x-text="user.username"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-600" x-text="user.email || '-'"></div>
+                                <div class="text-xs text-gray-400" x-text="user.phone || ''"></div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span :class="{'bg-red-100 text-red-700': user.role === 'admin', 'bg-blue-100 text-blue-700': user.role === 'operator', 'bg-gray-100 text-gray-700': user.role === 'viewer'}" 
+                                      class="px-2.5 py-1 rounded-full text-xs font-medium" x-text="user.role"></span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span :class="{'bg-green-100 text-green-700': user.status === 'approved', 'bg-yellow-100 text-yellow-700': user.status === 'pending', 'bg-red-100 text-red-700': user.status === 'rejected', 'bg-gray-100 text-gray-500': user.status === 'email_pending'}" 
+                                      class="px-2.5 py-1 rounded-full text-xs font-medium" x-text="getStatusText(user.status)"></span>
+                                <div x-show="!user.email_verified" class="text-xs text-orange-500 mt-1">이메일 미인증</div>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500" x-text="formatDate(user.created_at)"></td>
+                            <td class="px-6 py-4">
+                                <div class="flex justify-center gap-1">
+                                    <template x-if="user.status === 'pending'">
+                                        <div class="flex gap-1">
+                                            <button @click="openApproveModal(user)" class="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition flex items-center gap-1">
+                                                {{ svg_icon('check', 'w-4 h-4') }} 승인
+                                            </button>
+                                            <button @click="openRejectModal(user)" class="px-3 py-1.5 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition flex items-center gap-1">
+                                                {{ svg_icon('x-mark', 'w-4 h-4') }} 거부
+                                            </button>
+                                        </div>
+                                    </template>
+                                    <template x-if="user.status !== 'pending'">
+                                        <div class="flex gap-1">
+                                            <button @click="openUserModal(user)" class="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition" title="수정">
+                                                {{ svg_icon('pencil-square', 'w-4 h-4') }}
+                                            </button>
+                                            <button @click="openPasswordModal(user)" class="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition" title="비밀번호 초기화">
+                                                {{ svg_icon('wrench', 'w-4 h-4') }}
+                                            </button>
+                                            <button @click="openDeleteModal(user)" :disabled="user.username === 'admin'" :class="user.username === 'admin' ? 'opacity-30 cursor-not-allowed' : 'hover:text-red-600 hover:bg-red-50'" class="p-2 text-gray-400 rounded-lg transition" title="삭제">
+                                                {{ svg_icon('trash', 'w-4 h-4') }}
+                                            </button>
+                                        </div>
+                                    </template>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="users.length === 0">
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+                            <div class="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center text-gray-400 mb-4">
+                                {{ svg_icon('users', 'w-8 h-8') }}
+                            </div>
+                            <p x-text="currentTab === 'pending' ? '승인 대기 중인 사용자가 없습니다.' : '등록된 사용자가 없습니다.'"></p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- 사용자 추가/수정 모달 -->
+    <div x-show="showUserModal" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click="showUserModal = false">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+             @click.stop>
+            <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">{{ svg_icon('user', 'w-5 h-5 text-primary-600') }}</div>
+                    <h3 class="text-xl font-bold text-gray-800" x-text="editingUser ? '사용자 수정' : '사용자 추가'"></h3>
+                </div>
+                <button @click="showUserModal = false" class="text-gray-400 hover:text-gray-600">{{ svg_icon('x-mark', 'w-5 h-5') }}</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">아이디 *</label>
+                    <input type="text" x-model="userForm.username" :disabled="editingUser" :class="editingUser ? 'bg-gray-100 cursor-not-allowed' : ''" placeholder="영문, 숫자 조합" autocomplete="off" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-0 focus:border-primary-500 transition">
+                </div>
+                <div x-show="!editingUser">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호 *</label>
+                    <input type="password" x-model="userForm.password" placeholder="4자 이상" autocomplete="new-password" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-0 focus:border-primary-500 transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">이름 *</label>
+                    <input type="text" x-model="userForm.name" placeholder="홍길동" autocomplete="off" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-0 focus:border-primary-500 transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
+                    <input type="email" x-model="userForm.email" placeholder="user@example.com" autocomplete="off" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-0 focus:border-primary-500 transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">전화번호</label>
+                    <input type="tel" x-model="userForm.phone" placeholder="010-1234-5678" autocomplete="off" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-0 focus:border-primary-500 transition">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">역할 *</label>
+                    <select x-model="userForm.role" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-0 focus:border-primary-500 transition bg-white">
+                        <option value="admin">admin - 전체 권한</option>
+                        <option value="operator">operator - 운영 권한</option>
+                        <option value="viewer">viewer - 조회 권한</option>
+                    </select>
+                </div>
+                <div x-show="editingUser" class="flex items-center gap-2 pt-2">
+                    <input type="checkbox" x-model="userForm.is_active" id="userActive" class="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500">
+                    <label for="userActive" class="text-sm text-gray-700">활성 상태</label>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-2">
+                <button @click="showUserModal = false" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">취소</button>
+                <button @click="saveUser()" :disabled="saving" class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2">
+                    <div x-show="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span x-text="editingUser ? '수정' : '추가'"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 승인 확인 모달 -->
+    <div x-show="showApproveModal" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click="showApproveModal = false">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+             @click.stop>
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">{{ svg_icon('check-circle', 'w-6 h-6 text-green-600') }}</div>
+                <h3 class="text-xl font-bold text-gray-800">사용자 승인</h3>
+            </div>
+            <p class="text-gray-600 mb-2"><span class="font-semibold text-gray-800" x-text="approvingUser?.name"></span>님을 승인하시겠습니까?</p>
+            <p class="text-sm text-gray-500 mb-6">승인 시 로그인이 가능해지며 알림 메일이 발송됩니다.</p>
+            <div class="flex justify-end gap-2">
+                <button @click="showApproveModal = false" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">취소</button>
+                <button @click="confirmApprove()" :disabled="saving" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-2">
+                    <div x-show="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>승인
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 거부 사유 모달 -->
+    <div x-show="showRejectModal" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+         @click="showRejectModal = false">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95"
+             @click.stop>
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">{{ svg_icon('x-circle', 'w-6 h-6 text-red-600') }}</div>
+                <h3 class="text-xl font-bold text-gray-800">가입 거부</h3>
+            </div>
+            <p class="text-gray-600 mb-4"><span class="font-semibold text-gray-800" x-text="rejectingUser?.name"></span>님의 가입을 거부하시겠습니까?</p>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">거부 사유 (선택)</label>
+                <textarea x-model="rejectReason" rows="3" placeholder="거부 사유를 입력하세요 (사용자에게 이메일로 전달됩니다)" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-0 focus:border-primary-500 transition"></textarea>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button @click="showRejectModal = false" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">취소</button>
+                <button @click="confirmReject()" :disabled="saving" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2">
+                    <div x-show="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>거부
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 삭제 확인 모달 -->
+    <div x-show="showDeleteModal" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">{{ svg_icon('trash', 'w-6 h-6 text-red-600') }}</div>
+                <h3 class="text-xl font-bold text-gray-800">사용자 삭제</h3>
+            </div>
+            <p class="text-gray-600 mb-4"><span class="font-semibold text-gray-800" x-text="deletingUser?.name"></span>님을 삭제하시겠습니까?</p>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-6">
+                <p class="text-sm text-amber-800">이 작업은 되돌릴 수 없습니다.</p>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button @click="showDeleteModal = false" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">취소</button>
+                <button @click="confirmDelete()" :disabled="saving" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2">
+                    <div x-show="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>삭제
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 비밀번호 초기화 모달 -->
+    <div x-show="showPasswordModal" x-cloak class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+         x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl"
+             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+             x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100 scale-100" x-transition:leave-end="opacity-0 scale-95">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">{{ svg_icon('wrench', 'w-6 h-6 text-yellow-600') }}</div>
+                <h3 class="text-xl font-bold text-gray-800">비밀번호 초기화</h3>
+            </div>
+            <p class="text-gray-600 mb-4"><span class="font-semibold text-gray-800" x-text="passwordUser?.name"></span>님의 새 비밀번호를 입력하세요.</p>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">새 비밀번호 *</label>
+                <input type="password" x-model="newPassword" placeholder="4자 이상 입력하세요" autocomplete="new-password" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-0 focus:border-primary-500 transition">
+            </div>
+            <div class="flex justify-end gap-2">
+                <button @click="showPasswordModal = false; newPassword = '';" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">취소</button>
+                <button @click="confirmResetPassword()" :disabled="saving || newPassword.length < 4" class="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition disabled:opacity-50 flex items-center gap-2">
+                    <div x-show="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>초기화
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 토스트 메시지 -->
+    <div x-show="toast.show" x-cloak class="fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2"
+         :class="toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'"
+         x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 translate-y-0" x-transition:leave-end="opacity-0 translate-y-2">
+        <template x-if="toast.type === 'success'">{{ svg_icon('check-circle', 'w-5 h-5') }}</template>
+        <template x-if="toast.type === 'error'">{{ svg_icon('x-circle', 'w-5 h-5') }}</template>
+        <span x-text="toast.message"></span>
+    </div>
+</div>
+
+<script>
+function userManagement() {
+    return {
+        loading: true, saving: false, users: [], currentTab: 'all',
+        stats: { total: 0, pending: 0, approved: 0, rejected: 0, email_pending: 0 },
+        showUserModal: false, showRejectModal: false, showApproveModal: false, showDeleteModal: false, showPasswordModal: false,
+        editingUser: null, rejectingUser: null, approvingUser: null, deletingUser: null, passwordUser: null,
+        rejectReason: '', newPassword: '',
+        userForm: { username: '', password: '', name: '', email: '', phone: '', role: 'viewer', is_active: true },
+        toast: { show: false, message: '', type: 'success' },
+
+        async init() { await this.loadStats(); await this.loadUsers(); this.loading = false; },
+        async loadStats() { try { const r = await fetch('/api/users/stats'); if (r.ok) this.stats = await r.json(); } catch (e) { console.error('통계 로드 실패:', e); } },
+        async loadUsers() {
+            this.loading = true;
+            try { const s = this.currentTab === 'all' ? '' : `?status=${this.currentTab}`; const r = await fetch(`/api/users${s}`); if (r.ok) this.users = await r.json(); }
+            catch (e) { console.error('사용자 목록 로드 실패:', e); this.showToast('사용자 목록을 불러오는데 실패했습니다.', 'error'); }
+            finally { this.loading = false; }
+        },
+        getStatusText(s) { return {'approved':'승인됨','pending':'승인 대기','rejected':'거부됨','email_pending':'이메일 대기'}[s] || s; },
+        openUserModal(user = null) {
+            this.editingUser = user;
+            this.userForm = user ? { username: user.username, password: '', name: user.name, email: user.email || '', phone: user.phone || '', role: user.role, is_active: user.is_active }
+                                 : { username: '', password: '', name: '', email: '', phone: '', role: 'viewer', is_active: true };
+            this.showUserModal = true;
+        },
+        async saveUser() {
+            if (!this.userForm.username || !this.userForm.name || !this.userForm.role) { this.showToast('필수 항목을 입력하세요.', 'error'); return; }
+            if (!this.editingUser && !this.userForm.password) { this.showToast('비밀번호를 입력하세요.', 'error'); return; }
+            this.saving = true;
+            try {
+                let r; if (this.editingUser) { r = await fetch(`/api/users/${this.editingUser.id}`, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name:this.userForm.name,email:this.userForm.email,phone:this.userForm.phone,role:this.userForm.role,is_active:this.userForm.is_active}) }); }
+                else { r = await fetch('/api/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(this.userForm) }); }
+                if (r.ok) { this.showToast(this.editingUser ? '사용자가 수정되었습니다.' : '사용자가 추가되었습니다.', 'success'); this.showUserModal = false; await this.loadStats(); await this.loadUsers(); }
+                else { const d = await r.json(); throw new Error(d.detail || '저장 실패'); }
+            } catch (e) { this.showToast(e.message || '저장에 실패했습니다.', 'error'); } finally { this.saving = false; }
+        },
+        openApproveModal(user) { this.approvingUser = user; this.showApproveModal = true; },
+        async confirmApprove() {
+            this.saving = true;
+            try { const r = await fetch(`/api/users/${this.approvingUser.id}/approve`, { method: 'POST', headers: {'Content-Type':'application/json'} });
+                if (r.ok) { this.showToast(`${this.approvingUser.name}님이 승인되었습니다.`, 'success'); this.showApproveModal = false; await this.loadStats(); await this.loadUsers(); }
+                else { const d = await r.json(); throw new Error(d.detail || '승인 실패'); }
+            } catch (e) { this.showToast(e.message || '승인에 실패했습니다.', 'error'); } finally { this.saving = false; }
+        },
+        openRejectModal(user) { this.rejectingUser = user; this.rejectReason = ''; this.showRejectModal = true; },
+        async confirmReject() {
+            this.saving = true;
+            try { const r = await fetch(`/api/users/${this.rejectingUser.id}/reject`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({reason:this.rejectReason}) });
+                if (r.ok) { this.showToast(`${this.rejectingUser.name}님이 거부되었습니다.`, 'success'); this.showRejectModal = false; await this.loadStats(); await this.loadUsers(); }
+                else { const d = await r.json(); throw new Error(d.detail || '거부 실패'); }
+            } catch (e) { this.showToast(e.message || '거부에 실패했습니다.', 'error'); } finally { this.saving = false; }
+        },
+        openPasswordModal(user) { this.passwordUser = user; this.newPassword = ''; this.showPasswordModal = true; },
+        async confirmResetPassword() {
+            if (this.newPassword.length < 4) { this.showToast('비밀번호는 4자 이상이어야 합니다.', 'error'); return; }
+            this.saving = true;
+            try { const r = await fetch(`/api/users/${this.passwordUser.id}/reset-password`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({new_password:this.newPassword}) });
+                if (r.ok) { this.showToast('비밀번호가 초기화되었습니다.', 'success'); this.showPasswordModal = false; this.newPassword = ''; }
+                else throw new Error('비밀번호 초기화 실패');
+            } catch (e) { this.showToast('비밀번호 초기화에 실패했습니다.', 'error'); } finally { this.saving = false; }
+        },
+        openDeleteModal(user) { if (user.username === 'admin') { this.showToast('기본 관리자 계정은 삭제할 수 없습니다.', 'error'); return; } this.deletingUser = user; this.showDeleteModal = true; },
+        async confirmDelete() {
+            this.saving = true;
+            try { const r = await fetch(`/api/users/${this.deletingUser.id}`, { method: 'DELETE' });
+                if (r.ok) { this.showToast('사용자가 삭제되었습니다.', 'success'); this.showDeleteModal = false; await this.loadStats(); await this.loadUsers(); }
+                else throw new Error('삭제 실패');
+            } catch (e) { this.showToast('삭제에 실패했습니다.', 'error'); } finally { this.saving = false; }
+        },
+        formatDate(d) { if (!d) return '-'; return new Date(d).toLocaleString('ko-KR', {year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); },
+        showToast(msg, type = 'success') { this.toast = {show:true, message:msg, type}; setTimeout(() => this.toast.show = false, 3000); }
+    };
+}
+</script>
+{% endblock %}

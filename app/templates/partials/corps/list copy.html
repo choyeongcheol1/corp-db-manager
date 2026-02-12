@@ -1,0 +1,52 @@
+<!-- 법인 목록 테이블 tbody -->
+{% if corps %}
+{% for item in corps %}
+<tr class="hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+    hx-get="/partials/corps/detail/{{ item.corp.server_id }}/{{ item.corp.db_name }}"
+    hx-target="#detail-panel"
+    hx-swap="innerHTML"
+    hx-on::after-request="document.getElementById('detail-panel').classList.remove('hidden')">
+    <td class="px-6 py-4">
+        <span class="font-mono font-medium text-primary-600">{{ item.corp.corp_code }}</span>
+    </td>
+    <td class="px-6 py-4">
+        <span class="font-medium text-gray-800">{{ item.corp.corp_name }}</span>
+    </td>
+    {% if show_server_column %}
+    <td class="px-6 py-4 text-gray-600">{{ item.server_name }}</td>
+    {% endif %}
+    <td class="px-6 py-4">
+        <span class="font-mono text-sm text-gray-600">{{ item.corp.db_name }}</span>
+    </td>
+    <td class="px-6 py-4">
+        {% if item.corp.status == 'normal' %}
+        <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">정상</span>
+        {% elif item.corp.status == 'warning' %}
+        <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">경고</span>
+        {% else %}
+        <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">오류</span>
+        {% endif %}
+    </td>
+    <td class="px-6 py-4 text-gray-600 text-sm">
+        {% if item.corp.created_at %}
+            {% if item.corp.created_at is string %}
+                {{ item.corp.created_at[:10] }}
+            {% else %}
+                {{ item.corp.created_at.strftime('%Y-%m-%d') }}
+            {% endif %}
+        {% else %}
+            -
+        {% endif %}
+    </td>
+    <td class="px-6 py-4">
+        <span class="text-primary-600 text-sm">상세 →</span>
+    </td>
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+    <td colspan="{% if show_server_column %}7{% else %}6{% endif %}" class="px-6 py-12 text-center text-gray-500">
+        등록된 법인이 없습니다
+    </td>
+</tr>
+{% endif %}

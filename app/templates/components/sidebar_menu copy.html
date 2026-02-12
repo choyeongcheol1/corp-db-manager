@@ -1,0 +1,75 @@
+{% from "components/icons.html" import svg_icon %}
+{% set current_path = request.url.path %}
+{% set is_admin = user and user.role == 'admin' %}
+{% set sid = '/' + server_id|string if server_id else '' %}
+{% set sid_query = '?server_id=' + server_id|string if server_id else '' %}
+
+{# ── HTMX 네비게이션 매크로 ──
+   hx-get:      AJAX로 페이지 요청
+   hx-target:   #main-content 교체
+   hx-select:   서버 응답에서 #main-content만 추출
+   hx-swap:     outerHTML로 전체 교체 (id 유지)
+   hx-push-url: 브라우저 URL 변경 (뒤로가기 지원)
+   data-nav-link: active 메뉴 판별용 경로
+#}
+{% macro nav_link(href, icon, label, active_paths, classes='') %}
+<a href="{{ href }}"
+   hx-get="{{ href }}"
+   hx-target="#page-content"
+   hx-select="#page-content"
+   hx-swap="outerHTML"
+   hx-push-url="true"
+   data-nav-link="{{ active_paths }}"
+   class="flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+          {% set paths = active_paths.split(',') %}
+          {% set is_active = false %}
+          {% for p in paths %}
+              {% if current_path == p or (p != '/' and p in current_path) %}
+                  {% set is_active = true %}
+              {% endif %}
+          {% endfor %}
+          {% if is_active %}bg-primary-800{% else %}hover:bg-primary-800{% endif %}
+          {{ classes }}">
+    {{ svg_icon(icon, 'w-5 h-5 flex-shrink-0') }}
+    <span x-show="sidebarOpen" x-cloak>{{ label }}</span>
+</a>
+{% endmacro %}
+
+<!-- 서버 관리 (최상단) -->
+<div>
+    {{ nav_link('/servers', 'server', '서버 관리', '/servers,/server-management') }}
+    {{ nav_link('/dashboard' + sid, 'chart-bar', '모니터링', '/dashboard') }}
+</div>
+
+<!-- DB 관리 그룹 -->
+<div class="mt-4 pt-4 border-t border-primary-800">
+    <div class="px-4 py-2 text-xs text-primary-400 uppercase tracking-wide" x-show="sidebarOpen" x-cloak>
+        DB 관리
+    </div>
+    
+    {{ nav_link('/db/create' + sid, 'plus-circle', 'DB 생성', '/db/create') }}
+    {{ nav_link('/db/table-init' + sid, 'arrow-path', '테이블 초기화', '/db/table-init') }}
+    {{ nav_link('/db/list' + sid, 'circle-stack', 'DB 목록', '/db/list') }}
+</div>
+
+<!-- 도구 그룹 -->
+<div class="mt-4 pt-4 border-t border-primary-800">
+    <div class="px-4 py-2 text-xs text-primary-400 uppercase tracking-wide" x-show="sidebarOpen" x-cloak>
+        도구
+    </div>
+    
+    {{ nav_link('/data-copy' + sid, 'document-duplicate', '데이터 복사', '/data-copy') }}
+    {{ nav_link('/db-sync' + sid, 'arrows-right-left', 'DB 동기화', '/db-sync') }}
+    {{ nav_link('/tables' + sid_query, 'table-cells', '테이블 현황', '/tables') }}
+    {{ nav_link('/schema-export' + sid_query, 'document-arrow-down', '테이블 정의서', '/schema-export') }}
+</div>
+
+<!-- 시스템 그룹 -->
+<div class="mt-4 pt-4 border-t border-primary-800">
+    {{ nav_link('/activity-logs', 'clipboard-document-list', '활동 로그', '/activity-logs') }}
+    {{ nav_link('/settings', 'cog', '설정', '/settings') }}
+    
+    {% if is_admin %}
+    {{ nav_link('/user-management', 'users', '사용자 관리', '/user-management') }}
+    {% endif %}
+</div>

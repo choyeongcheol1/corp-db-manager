@@ -1,0 +1,106 @@
+<!-- 복사할 테이블 목록 -->
+<div class="max-h-96 overflow-y-auto">
+    <table class="w-full">
+        <thead class="bg-gray-50 sticky top-0">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase w-12">
+                    <input type="checkbox" 
+                           id="select-all-checkbox"
+                           class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                           onchange="toggleAll(this.checked)">
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    테이블명
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    행 수
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    용량 (MB)
+                </th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase w-24">
+                    대상 존재
+                </th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            {% for table in tables %}
+            {% set in_target = table.table_name in target_tables if target_tables is defined else true %}
+            <tr class="hover:bg-gray-50 table-row {% if not in_target %}bg-yellow-50{% endif %}" 
+                data-table-name="{{ table.table_name }}">
+                <td class="px-4 py-3">
+                    <input type="checkbox" 
+                           class="table-checkbox rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                           value="{{ table.table_name }}"
+                           data-rows="{{ table.row_count }}"
+                           data-size="{{ table.size_mb }}"
+                           {% if not in_target %}disabled title="대상 DB에 테이블이 없습니다"{% endif %}
+                           onchange="updateSummary(); syncSelectAll();">
+                </td>
+                <td class="px-4 py-3">
+                    <span class="font-medium text-gray-800">{{ table.table_name }}</span>
+                </td>
+                <td class="px-4 py-3 text-right text-sm text-gray-600">
+                    {{ "{:,}".format(table.row_count | int) }}
+                </td>
+                <td class="px-4 py-3 text-right text-sm text-gray-600">
+                    {{ "%.2f"|format(table.size_mb) }}
+                </td>
+                <td class="px-4 py-3 text-center">
+                    {% if in_target %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                        ✓
+                    </span>
+                    {% else %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700" 
+                          title="대상 DB에 이 테이블이 없어 복사할 수 없습니다">
+                        없음
+                    </span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                    테이블이 없습니다
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if tables %}
+<div class="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500 flex justify-between">
+    <span>전체 {{ tables | length }}개 테이블</span>
+    {% if target_tables is defined %}
+    {% set missing = tables | rejectattr('table_name', 'in', target_tables) | list | length %}
+    {% if missing > 0 %}
+    <span class="text-yellow-600">⚠ {{ missing }}개 테이블이 대상 DB에 없습니다</span>
+    {% endif %}
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+function toggleAll(checked) {
+    document.querySelectorAll('.table-checkbox:not(:disabled)').forEach(function(cb) {
+        if (cb.closest('.table-row').style.display !== 'none') {
+            cb.checked = checked;
+        }
+    });
+    updateSummary();
+}
+
+// 개별 체크박스 변경 시 전체선택 동기화
+function syncSelectAll() {
+    var allCheckboxes = document.querySelectorAll('.table-checkbox:not(:disabled)');
+    var checkedCount = document.querySelectorAll('.table-checkbox:not(:disabled):checked').length;
+    var selectAll = document.getElementById('select-all-checkbox');
+    
+    if (selectAll) {
+        selectAll.checked = allCheckboxes.length > 0 && checkedCount === allCheckboxes.length;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+    }
+}
+</script>

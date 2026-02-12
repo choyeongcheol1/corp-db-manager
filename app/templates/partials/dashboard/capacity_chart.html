@@ -1,0 +1,74 @@
+<!-- DB별 용량 차트 (디스크 사용률 포함) -->
+{% from "components/icons.html" import svg_icon %}
+
+<div class="space-y-4">
+    <!-- 범례 -->
+    <div class="flex items-center justify-between text-sm text-gray-500">
+        <span>상위 {{ databases | length }}개 DB (용량 기준)</span>
+        <span>단위: GB</span>
+    </div>
+    
+    <!-- 막대 그래프 -->
+    <div class="space-y-3">
+        {% set max_size = databases[0].size_mb if databases else 1 %}
+        {% for db in databases %}
+        <div class="group"
+             data-disk-total-gb="{{ db.disk_total_gb | default(0) }}"
+             data-disk-free-gb="{{ db.disk_free_gb | default(0) }}"
+             data-disk-used-pct="{{ db.disk_used_pct | default(0) }}"
+             data-db-disk-pct="{{ db.db_disk_pct | default(0) }}"
+             data-drive="{{ db.drive | default('') }}">
+            <div class="flex items-center justify-between mb-1">
+                <span class="text-sm font-medium text-gray-700 truncate max-w-[200px]" title="{{ db.db_name }}">
+                    {{ db.db_name }}
+                </span>
+                <div class="flex items-center gap-2">
+                    {% if db.disk_total_gb is defined and db.disk_total_gb > 0 %}
+                    <span class="text-xs px-1.5 py-0.5 rounded
+                        {% if db.disk_used_pct >= 90 %}bg-red-100 text-red-600
+                        {% elif db.disk_used_pct >= 80 %}bg-amber-100 text-amber-600
+                        {% else %}bg-gray-100 text-gray-500{% endif %}"
+                          title="디스크 {{ db.drive }}: {{ db.disk_used_pct }}% 사용 (여유: {{ db.disk_free_gb }}GB / 전체: {{ db.disk_total_gb }}GB)">
+                        {{ svg_icon('server', 'w-3 h-3 inline') }} {{ db.disk_used_pct }}%
+                    </span>
+                    {% endif %}
+                    <span class="text-sm text-gray-500" data-size-gb="{{ "%.1f"|format(db.size_mb / 1024) }}">
+                        {{ "%.1f"|format(db.size_mb / 1024) }} GB
+                    </span>
+                </div>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-6 overflow-hidden">
+                {% set percent = (db.size_mb / max_size * 100) | int %}
+                <div class="bg-blue-500 h-6 rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+                     style="width: {{ percent }}%">
+                    {% if percent > 15 %}
+                    <span class="text-xs text-white font-medium">{{ percent }}%</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-gray-400">
+            <p>데이터가 없습니다</p>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- 총 용량 + 디스크 요약 -->
+    {% if databases %}
+    <div class="pt-4 border-t border-gray-200">
+        <div class="flex items-center justify-between text-sm">
+            <span class="text-gray-500">상위 {{ databases | length }}개 합계</span>
+            <span class="font-semibold text-gray-800">
+                {{ "%.1f"|format(databases | sum(attribute='size_mb') / 1024) }} GB
+            </span>
+        </div>
+        {% if databases[0].disk_total_gb is defined and databases[0].disk_total_gb > 0 %}
+        <div class="flex items-center justify-between text-xs text-gray-400 mt-1">
+            <span>디스크 {{ databases[0].drive }}: {{ databases[0].disk_used_pct }}% 사용</span>
+            <span>여유: {{ databases[0].disk_free_gb }} GB / 전체: {{ databases[0].disk_total_gb }} GB</span>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>

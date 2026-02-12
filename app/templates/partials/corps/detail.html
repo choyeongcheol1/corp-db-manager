@@ -1,0 +1,110 @@
+<!-- 법인 상세 정보 패널 -->
+<div class="p-6">
+    <!-- 헤더 -->
+    <div class="flex items-center justify-between mb-6">
+        <h3 class="text-xl font-bold text-gray-800">법인 상세 정보</h3>
+        <button onclick="document.getElementById('detail-panel').classList.add('hidden')" 
+                class="text-gray-400 hover:text-gray-600">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+    
+    <!-- 기본 정보 -->
+    <div class="space-y-6">
+        <div>
+            <h4 class="text-sm font-medium text-gray-500 mb-3">기본 정보</h4>
+            <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">법인코드</span>
+                    <span class="font-mono font-medium">{{ corp.corp_code }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">법인명</span>
+                    <span class="font-medium">{{ corp.corp_name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">사업자번호</span>
+                    <span>{{ corp.biz_no or '-' }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">생성일</span>
+                    <span>{{ corp.created_at.strftime('%Y-%m-%d %H:%M') if corp.created_at else '-' }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">상태</span>
+                    {% if corp.status == 'normal' %}
+                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">정상</span>
+                    {% elif corp.status == 'warning' %}
+                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">경고</span>
+                    {% else %}
+                    <span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">오류</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div>
+            <h4 class="text-sm font-medium text-gray-500 mb-3">서버/DB 정보</h4>
+            <div class="bg-gray-50 rounded-lg p-4 space-y-3">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">서버</span>
+                    <span class="font-medium">{{ server.server_name if server else '-' }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">호스트</span>
+                    <span class="font-mono text-sm">{{ server.host }}:{{ server.port if server else '-' }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">DB명</span>
+                    <span class="font-mono">{{ corp.db_name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">접속계정</span>
+                    <span class="font-mono">{{ corp.db_user }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">용량</span>
+                    <span>{{ "%.1f"|format(size_mb) }} MB</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">테이블 수</span>
+                    <span>{{ tables|length }}개</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 테이블 목록 (접기/펼치기) -->
+        {% if tables %}
+        <div x-data="{ open: false }">
+            <button @click="open = !open" class="flex items-center justify-between w-full text-sm font-medium text-gray-500 mb-3">
+                <span>테이블 목록 ({{ tables|length }}개)</span>
+                <svg class="w-4 h-4 transition-transform" :class="open ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div x-show="open" x-cloak class="bg-gray-50 rounded-lg overflow-hidden">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-gray-600">테이블명</th>
+                            <th class="px-3 py-2 text-right text-gray-600">행 수</th>
+                            <th class="px-3 py-2 text-right text-gray-600">용량</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for table in tables %}
+                        <tr>
+                            <td class="px-3 py-2 font-mono text-xs">{{ table.table_name }}</td>
+                            <td class="px-3 py-2 text-right text-gray-600">{{ "{:,}".format(table.row_count|int) }}</td>
+                            <td class="px-3 py-2 text-right text-gray-600">{{ "%.1f"|format(table.size_mb) }} MB</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>

@@ -1,0 +1,599 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import svg_icon %}
+{% from "components/modals.html" import alert_modal %}
+
+{% block title %}DB 동기화 - 법인 DB 관리 시스템{% endblock %}
+
+{% block content %}
+<div x-data="dbSyncApp()" class="space-y-6">
+    <!-- 페이지 헤더 -->
+    <div class="mb-6">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600">
+                {{ svg_icon('arrows-right-left', 'w-6 h-6') }}
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">DB 동기화</h1>
+                <p class="text-gray-500 mt-1">Linked Server를 이용하여 소스 DB의 테이블 데이터를 타겟 DB로 동기화합니다</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Step 1: 타겟 서버 + Linked Server 선택 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="bg-gradient-to-r from-purple-600 to-purple-700 px-6 py-4">
+            <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                {{ svg_icon('link', 'w-5 h-5') }}
+                연결 설정
+            </h2>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 타겟 서버 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">타겟 서버 (실행 서버) *</label>
+                    <select x-model="targetServerId" @change="onTargetServerChange()"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500">
+                        <option value="">서버 선택</option>
+                        {% for server in servers %}
+                        <option value="{{ server.id }}">{{ server.server_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">INSERT가 실행될 서버</p>
+                </div>
+                
+                <!-- Linked Server -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Linked Server (소스 서버) *</label>
+                    <div class="flex gap-2">
+                        <select x-model="linkedServerName" @change="onLinkedServerChange()"
+                                :disabled="!targetServerId || lsLoading"
+                                class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 disabled:bg-gray-100">
+                            <option value="">
+                                <span x-text="lsLoading ? '조회 중...' : (targetServerId ? 'Linked Server 선택' : '먼저 타겟 서버를 선택하세요')"></span>
+                            </option>
+                            <template x-for="ls in linkedServers" :key="ls.name">
+                                <option :value="ls.name" x-text="ls.name + ' (' + ls.data_source + ')'"></option>
+                            </template>
+                        </select>
+                        <button @click="testLinkedServer()" 
+                                :disabled="!linkedServerName || lsTesting"
+                                class="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition disabled:opacity-50 text-sm whitespace-nowrap">
+                            <span x-show="!lsTesting">테스트</span>
+                            <span x-show="lsTesting">
+                                <svg class="animate-spin inline h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </span>
+                        </button>
+                    </div>
+                    <!-- 연결 상태 -->
+                    <div x-show="lsTestResult !== null" class="mt-1">
+                        <span x-show="lsTestResult === true" class="text-xs text-green-600">✅ 연결 성공</span>
+                        <span x-show="lsTestResult === false" class="text-xs text-red-600">❌ 연결 실패: <span x-text="lsTestMessage"></span></span>
+                    </div>
+                    <p x-show="linkedServers.length === 0 && targetServerId && !lsLoading" class="text-xs text-red-500 mt-1">
+                        등록된 Linked Server가 없습니다. SSMS에서 먼저 설정해주세요.
+                    </p>
+                </div>
+                
+                <!-- 안내 -->
+                <div class="flex items-center">
+                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 w-full">
+                        <p class="text-xs text-purple-700">
+                            <span class="font-medium">💡 동작 방식</span><br>
+                            타겟 서버에서 Linked Server를 통해<br>
+                            소스 데이터를 직접 가져옵니다.<br>
+                            <span class="text-purple-500">(파일 I/O 없이 최고 성능)</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Step 2: 소스 DB / 타겟 DB 선택 -->
+    <div x-show="linkedServerName" x-transition class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- 소스 DB (Linked Server 경유) -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                    {{ svg_icon('arrow-up-tray', 'w-5 h-5') }}
+                    소스 DB (원본)
+                    <span class="text-blue-200 text-sm font-normal" x-text="'via ' + linkedServerName"></span>
+                </h2>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">DB *</label>
+                    <select x-model="sourceDbName" @change="onSourceDbChange()"
+                            :disabled="sourceDbLoading"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-100">
+                        <option value="">
+                            <span x-text="sourceDbLoading ? '조회 중...' : 'DB 선택'"></span>
+                        </option>
+                        <template x-for="db in sourceDatabases" :key="db">
+                            <option :value="db" x-text="db"></option>
+                        </template>
+                    </select>
+                </div>
+                <div x-show="sourceDbName" class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div class="flex items-center gap-2 text-blue-700 font-medium text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        소스 DB 선택됨
+                    </div>
+                    <div class="text-sm text-blue-600 mt-1">
+                        <span class="font-mono" x-text="linkedServerName + '.' + sourceDbName"></span>
+                    </div>
+                </div>
+                <div x-show="!sourceDbName" class="text-sm text-gray-500">
+                    <p>동기화할 원본 DB를 선택하세요.</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 타겟 DB (로컬) -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4">
+                <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                    {{ svg_icon('arrow-down-tray', 'w-5 h-5') }}
+                    타겟 DB (대상)
+                    <span class="text-green-200 text-sm font-normal" x-text="targetServerId ? document.querySelector('select[x-model=targetServerId] option:checked')?.text : ''"></span>
+                </h2>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">DB *</label>
+                    <select x-model="targetDbName" @change="onTargetDbChange()"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-green-500">
+                        <option value="">DB 선택</option>
+                        <template x-for="db in targetDatabases" :key="db">
+                            <option :value="db" x-text="db"></option>
+                        </template>
+                    </select>
+                </div>
+                <div x-show="targetDbName" class="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div class="flex items-center gap-2 text-green-700 font-medium text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        타겟 DB 선택됨
+                    </div>
+                    <div class="text-sm text-green-600 mt-1 font-mono" x-text="targetDbName"></div>
+                </div>
+                <div x-show="!targetDbName" class="text-sm text-gray-500">
+                    <p>데이터를 동기화할 대상 DB를 선택하세요.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Step 3: 동기화 옵션 -->
+    <div x-show="sourceDbName && targetDbName" x-transition
+         class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4">
+            <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                {{ svg_icon('cog-6-tooth', 'w-5 h-5') }}
+                동기화 옵션
+            </h2>
+        </div>
+        <div class="p-6">
+            <div class="flex flex-wrap gap-6">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" x-model="optTruncate" 
+                           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <span class="text-sm text-gray-700">TRUNCATE 후 INSERT</span>
+                    <span class="text-xs text-gray-400">(타겟 데이터 삭제 후 복사)</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" x-model="optKeepIdentity"
+                           class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <span class="text-sm text-gray-700">Identity 값 유지</span>
+                    <span class="text-xs text-gray-400">(소스 ID 값 그대로 사용)</span>
+                </label>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Step 4: 테이블 목록 -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="bg-gradient-to-r from-gray-700 to-gray-800 px-6 py-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                    {{ svg_icon('table-cells', 'w-5 h-5') }}
+                    테이블 목록
+                </h2>
+                <div class="flex items-center gap-2">
+                    <input type="text" x-model="tableSearch" placeholder="테이블 검색..." 
+                           class="px-3 py-1.5 text-sm rounded border-0 focus:ring-2 focus:ring-white/50">
+                    <span class="text-white/70 text-sm" x-text="(filteredTables ? filteredTables.length : 0) + '개'"></span>
+                </div>
+            </div>
+        </div>
+        <div class="divide-y divide-gray-100">
+            <div x-show="tableLoading" class="p-8 text-center text-gray-500">
+                <svg class="animate-spin h-6 w-6 mx-auto mb-2 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                테이블 목록 조회 중...
+            </div>
+            <div x-show="!tableLoading && !sourceDbName" class="p-8 text-center text-gray-400">
+                소스 DB를 선택하면 테이블 목록이 표시됩니다
+            </div>
+            <div x-show="!tableLoading && sourceDbName && tables.length === 0" class="p-8 text-center text-gray-400">
+                테이블이 없습니다
+            </div>
+            
+            <table x-show="!tableLoading && filteredTables && filteredTables.length > 0" class="w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">테이블명</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">설명</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">건수</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Identity</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">상태</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">액션</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <template x-for="table in filteredTables" :key="table.table_name">
+                        <tr class="hover:bg-gray-50" 
+                            :class="{
+                                'bg-green-50': tableStatus[table.table_name] === 'success', 
+                                'bg-red-50': tableStatus[table.table_name] === 'error'
+                            }">
+                            <td class="px-4 py-3 font-mono text-sm" x-text="table.table_name"></td>
+                            <td class="px-4 py-3 text-sm text-gray-600 max-w-xs truncate" :title="table.description">
+                                <span x-text="table.description || '-'" :class="{'text-gray-300': !table.description}"></span>
+                            </td>
+                            <td class="px-4 py-3 text-right text-sm text-gray-600" x-text="(table.row_count || 0).toLocaleString()"></td>
+                            <td class="px-4 py-3 text-center">
+                                <span x-show="table.has_identity" class="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">ID</span>
+                                <span x-show="!table.has_identity" class="text-gray-300 text-xs">-</span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <span x-show="!tableStatus[table.table_name]" class="text-gray-400 text-xs">대기</span>
+                                <span x-show="tableStatus[table.table_name] === 'loading'" class="text-blue-600 text-xs">
+                                    <svg class="animate-spin inline h-3 w-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    동기화 중...
+                                </span>
+                                <span x-show="tableStatus[table.table_name] === 'success'" class="text-green-600 text-xs" x-text="tableStatusText[table.table_name]"></span>
+                                <span x-show="tableStatus[table.table_name] === 'error'" class="text-red-600 text-xs">실패</span>
+                            </td>
+                            <td class="px-4 py-3 text-center">
+                                <button @click="showSyncConfirm(table.table_name)"
+                                        :disabled="tableStatus[table.table_name] === 'loading' || !targetDbName"
+                                        class="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <span x-show="tableStatus[table.table_name] !== 'loading'">동기화</span>
+                                    <span x-show="tableStatus[table.table_name] === 'loading'">처리중...</span>
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- 동기화 확인 모달 -->
+    <div x-show="showConfirmModal" x-cloak x-transition
+         class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-800">동기화 확인</h3>
+            </div>
+            
+            <div class="bg-gray-50 rounded-lg p-4 mb-4 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">테이블</span>
+                    <span class="font-mono font-medium" x-text="confirmData.tableName"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">소스</span>
+                    <span class="font-mono text-blue-600" x-text="linkedServerName + '.' + sourceDbName"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">타겟</span>
+                    <span class="font-mono text-green-600" x-text="targetDbName"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">TRUNCATE</span>
+                    <span :class="optTruncate ? 'text-red-600' : 'text-gray-400'" x-text="optTruncate ? '예 (기존 데이터 삭제)' : '아니오'"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Identity 유지</span>
+                    <span x-text="optKeepIdentity ? '예' : '아니오'"></span>
+                </div>
+            </div>
+            
+            <div x-show="optTruncate" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                <div class="flex items-center gap-2 text-yellow-700 text-sm">
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                    <span>타겟 테이블의 기존 데이터가 모두 삭제됩니다.</span>
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-3">
+                <button @click="showConfirmModal = false" 
+                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">취소</button>
+                <button @click="showConfirmModal = false; executeSync(confirmData.tableName)"
+                        class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">동기화 실행</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 알림 모달 -->
+    {{ alert_modal() }}
+    
+    <!-- 결과 모달 -->
+    <div x-show="showResultModal" x-cloak x-transition
+         class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-2xl p-6 max-w-lg w-full mx-4 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold" :class="resultData.success ? 'text-green-700' : 'text-red-700'">
+                    <span x-text="resultData.success ? '✅' : '❌'"></span>
+                    동기화 <span x-text="resultData.success ? '완료' : '실패'"></span>
+                </h3>
+                <button @click="showResultModal = false" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="space-y-3 mb-4">
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">테이블</span>
+                    <span class="font-mono font-medium" x-text="resultData.table_name"></span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">소스</span>
+                    <span class="font-mono text-blue-600" x-text="resultData.linked_server_name + '.' + resultData.source_db"></span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">타겟</span>
+                    <span class="font-mono text-green-600" x-text="resultData.target_db"></span>
+                </div>
+                <div class="border-t border-gray-100 pt-2"></div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">동기화 행수</span>
+                    <span class="font-medium text-purple-600" x-text="(resultData.rows_affected || 0).toLocaleString() + '행'"></span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-gray-500">소요 시간</span>
+                    <span x-text="(resultData.elapsed_seconds || 0).toFixed(2) + '초'"></span>
+                </div>
+            </div>
+            
+            <template x-if="resultData.error_message">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <div class="text-sm text-red-700" x-text="resultData.error_message"></div>
+                </div>
+            </template>
+            
+            <div class="flex justify-end">
+                <button @click="showResultModal = false" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">닫기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function dbSyncApp() {
+    return {
+        // 타겟 서버
+        targetServerId: '',
+        targetDatabases: [],
+        targetDbName: '',
+        
+        // Linked Server
+        linkedServers: [],
+        linkedServerName: '',
+        lsLoading: false,
+        lsTesting: false,
+        lsTestResult: null,
+        lsTestMessage: '',
+        
+        // 소스 DB (Linked Server 경유)
+        sourceDatabases: [],
+        sourceDbName: '',
+        sourceDbLoading: false,
+        
+        // 옵션
+        optTruncate: true,
+        optKeepIdentity: false,
+        
+        // 테이블
+        tables: [],
+        tableSearch: '',
+        tableLoading: false,
+        tableStatus: {},
+        tableStatusText: {},
+        
+        // 모달
+        showConfirmModal: false,
+        confirmData: {},
+        showAlertModal: false,
+        alertData: {},
+        showResultModal: false,
+        resultData: {},
+        
+        get filteredTables() {
+            if (!this.tables || !this.tables.length) return [];
+            if (!this.tableSearch) return this.tables;
+            const keyword = this.tableSearch.toLowerCase();
+            return this.tables.filter(t => 
+                t.table_name.toLowerCase().includes(keyword) ||
+                (t.description && t.description.toLowerCase().includes(keyword))
+            );
+        },
+        
+        // ---- 타겟 서버 변경 ----
+        async onTargetServerChange() {
+            this.linkedServers = [];
+            this.linkedServerName = '';
+            this.lsTestResult = null;
+            this.sourceDatabases = [];
+            this.sourceDbName = '';
+            this.targetDatabases = [];
+            this.targetDbName = '';
+            this.tables = [];
+            this.tableStatus = {};
+            this.tableStatusText = {};
+            
+            if (!this.targetServerId) return;
+            
+            // Linked Server 목록 조회
+            this.lsLoading = true;
+            try {
+                const response = await fetch(`/api/db-sync/linked-servers/${this.targetServerId}`);
+                this.linkedServers = await response.json();
+            } catch (error) {
+                this.linkedServers = [];
+            }
+            this.lsLoading = false;
+            
+            // 타겟 DB 목록 조회
+            try {
+                const response = await fetch(`/partials/servers/${this.targetServerId}/databases`);
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(`<select>${html}</select>`, 'text/html');
+                this.targetDatabases = Array.from(doc.querySelectorAll('option'))
+                    .map(opt => opt.value).filter(v => v);
+            } catch (error) {
+                this.targetDatabases = [];
+            }
+        },
+        
+        // ---- Linked Server 변경 ----
+        async onLinkedServerChange() {
+            this.lsTestResult = null;
+            this.sourceDatabases = [];
+            this.sourceDbName = '';
+            this.tables = [];
+            this.tableStatus = {};
+            this.tableStatusText = {};
+            
+            if (!this.linkedServerName) return;
+            
+            // 소스 DB 목록 조회 (Linked Server 경유)
+            this.sourceDbLoading = true;
+            try {
+                const response = await fetch(`/api/db-sync/source-databases/${this.targetServerId}/${this.linkedServerName}`);
+                this.sourceDatabases = await response.json();
+            } catch (error) {
+                this.sourceDatabases = [];
+            }
+            this.sourceDbLoading = false;
+        },
+        
+        // ---- Linked Server 연결 테스트 ----
+        async testLinkedServer() {
+            if (!this.linkedServerName) return;
+            this.lsTesting = true;
+            this.lsTestResult = null;
+            try {
+                const response = await fetch(`/api/db-sync/linked-server-test/${this.targetServerId}/${this.linkedServerName}`);
+                const result = await response.json();
+                this.lsTestResult = result.success;
+                this.lsTestMessage = result.message || '';
+            } catch (error) {
+                this.lsTestResult = false;
+                this.lsTestMessage = error.message;
+            }
+            this.lsTesting = false;
+        },
+        
+        // ---- 소스 DB 변경 ----
+        async onSourceDbChange() {
+            this.tables = [];
+            this.tableStatus = {};
+            this.tableStatusText = {};
+            
+            if (!this.sourceDbName) return;
+            
+            this.tableLoading = true;
+            try {
+                const response = await fetch(
+                    `/api/db-sync/source-tables/${this.targetServerId}/${this.linkedServerName}/${this.sourceDbName}`
+                );
+                this.tables = await response.json();
+            } catch (error) {
+                this.tables = [];
+            }
+            this.tableLoading = false;
+        },
+        
+        // ---- 타겟 DB 변경 ----
+        onTargetDbChange() {
+            this.tableStatus = {};
+            this.tableStatusText = {};
+        },
+        
+        // ---- 동기화 ----
+        showSyncConfirm(tableName) {
+            if (!this.targetDbName) {
+                this.alertData = { title: '알림', message: '타겟 DB를 선택해주세요.', type: 'warning' };
+                this.showAlertModal = true;
+                return;
+            }
+            this.confirmData = { tableName };
+            this.showConfirmModal = true;
+        },
+        
+        async executeSync(tableName) {
+            this.tableStatus[tableName] = 'loading';
+            
+            try {
+                const response = await fetch('/api/db-sync/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        target_server_id: parseInt(this.targetServerId),
+                        target_db_name: this.targetDbName,
+                        linked_server_name: this.linkedServerName,
+                        source_db_name: this.sourceDbName,
+                        table_name: tableName,
+                        truncate_before: this.optTruncate,
+                        keep_identity: this.optKeepIdentity
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.tableStatus[tableName] = 'success';
+                    this.tableStatusText[tableName] = `완료 (${(result.rows_affected || 0).toLocaleString()}행, ${(result.elapsed_seconds || 0).toFixed(1)}초)`;
+                } else {
+                    this.tableStatus[tableName] = 'error';
+                }
+                
+                this.resultData = result;
+                this.showResultModal = true;
+                
+            } catch (error) {
+                this.tableStatus[tableName] = 'error';
+                this.alertData = { title: '오류', message: error.message, type: 'error' };
+                this.showAlertModal = true;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,65 @@
+# =============================================================================
+# Corp DB Manager - Docker Ignore
+# Version: v1.3.1 (2026-02-08)
+# =============================================================================
+
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Docker (자기 자신 제외)
+Dockerfile
+docker-compose*.yml
+.docker/
+.dockerignore
+nginx.conf
+
+# Documentation
+docs/
+*.md
+
+# Data (볼륨으로 마운트)
+data/
+*.db
+*.sqlite
+
+# Environment (볼륨으로 마운트)
+.env
+.env.example
+
+# Misc
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp

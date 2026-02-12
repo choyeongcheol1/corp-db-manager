@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이메일 인증 - 법인 DB 관리 시스템</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; background-color: #e5e5e5;">
+    <!-- 전체 컨테이너 -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #e5e5e5;">
+        <tr>
+            <td align="center" style="padding: 40px 20px;">
+                <!-- 메인 카드 -->
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <!-- 헤더: 로고 -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 30px 40px;">
+                            <table cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="background-color: #2563eb; border-radius: 12px; padding: 16px 24px;">
+                                        <table cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="vertical-align: middle;">
+                                                    <div style="width: 40px; height: 40px; background-color: rgba(255,255,255,0.2); border-radius: 8px; text-align: center; line-height: 40px;">
+                                                        <span style="color: #ffffff; font-size: 16px; font-weight: bold;">DB</span>
+                                                    </div>
+                                                </td>
+                                                <td style="vertical-align: middle; padding-left: 12px;">
+                                                    <span style="color: #ffffff; font-size: 20px; font-weight: bold;">법인 DB 관리 시스템</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- 제목 -->
+                    <tr>
+                        <td align="center" style="padding: 0 40px 20px 40px;">
+                            <h1 style="margin: 0; color: #1e3a8a; font-size: 26px; font-weight: bold;">
+                                이메일 인증
+                            </h1>
+                        </td>
+                    </tr>
+                    
+                    <!-- 구분선 -->
+                    <tr>
+                        <td style="padding: 0 40px;">
+                            <div style="border-bottom: 2px solid #e5e7eb;"></div>
+                        </td>
+                    </tr>
+                    
+                    <!-- 본문 -->
+                    <tr>
+                        <td style="padding: 30px 40px;">
+                            <p style="margin: 0 0 8px 0; color: #374151; font-size: 16px; line-height: 1.6;">
+                                <strong style="color: #1e3a8a;">{{ name }}</strong>님, 안녕하세요!
+                            </p>
+                            <p style="margin: 0 0 24px 0; color: #6b7280; font-size: 15px; line-height: 1.6;">
+                                DB 관리 시스템 회원가입을 환영합니다.<br>
+                                아래 버튼을 클릭하여 이메일 인증을 완료해주세요.
+                            </p>
+                            
+                            <!-- 인증 버튼 -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 24px;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ verify_url }}" 
+                                           style="display: inline-block; background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 16px 48px; border-radius: 8px; font-size: 16px; font-weight: bold;">
+                                            이메일 인증하기
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="margin: 0; color: #9ca3af; font-size: 13px; line-height: 1.6;">
+                                버튼이 작동하지 않으면 아래 링크를 브라우저에 복사하여 접속하세요:
+                            </p>
+                            <p style="margin: 8px 0 0 0; word-break: break-all;">
+                                <a href="{{ verify_url }}" style="color: #2563eb; font-size: 13px; text-decoration: underline;">
+                                    {{ verify_url }}
+                                </a>
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- 경고 박스 -->
+                    <tr>
+                        <td style="padding: 0 40px 30px 40px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 0 8px 8px 0;">
+                                <tr>
+                                    <td style="padding: 16px;">
+                                        <table cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="vertical-align: top; padding-right: 8px;">
+                                                    <!-- 경고 아이콘 SVG -->
+                                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M12 9V13M12 17H12.01M10.29 3.86L1.82 18C1.64 18.3 1.55 18.64 1.55 19C1.55 19.36 1.64 19.7 1.82 20C2 20.3 2.26 20.56 2.56 20.74C2.86 20.92 3.21 21.01 3.56 21H20.44C20.79 21.01 21.14 20.92 21.44 20.74C21.74 20.56 22 20.3 22.18 20C22.36 19.7 22.45 19.36 22.45 19C22.45 18.64 22.36 18.3 22.18 18L13.71 3.86C13.53 3.56 13.27 3.32 12.97 3.15C12.67 2.98 12.34 2.89 12 2.89C11.66 2.89 11.33 2.98 11.03 3.15C10.73 3.32 10.47 3.56 10.29 3.86Z" stroke="#92400e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                    </svg>
+                                                </td>
+                                                <td>
+                                                    <p style="margin: 0 0 4px 0; color: #92400e; font-size: 14px; font-weight: bold;">
+                                                        이 링크는 <span style="color: #dc2626;">24시간</span> 동안만 유효합니다.
+                                                    </p>
+                                                    <p style="margin: 0; color: #78350f; font-size: 13px;">
+                                                        본인이 요청하지 않은 경우 이 메일을 무시하세요.
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    
+                    <!-- 푸터 구분선 -->
+                    <tr>
+                        <td style="padding: 0 40px;">
+                            <div style="border-bottom: 1px solid #e5e7eb;"></div>
+                        </td>
+                    </tr>
+                    
+                    <!-- 푸터 -->
+                    <tr>
+                        <td style="padding: 24px 40px; background-color: #f9fafb; border-radius: 0 0 8px 8px;">
+                            <p style="margin: 0 0 8px 0; color: #9ca3af; font-size: 12px; text-align: center;">
+                                본 메일은 발신 전용입니다.
+                            </p>
+                            <p style="margin: 0; color: #9ca3af; font-size: 12px; text-align: center;">
+                                © 2026 DB 관리 시스템. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이메일 인증 - 법인 DB 관리 시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-screen bg-gray-50">
+    <!-- 좌측: 브랜딩 영역 (fixed) -->
+    {% include "components/auth_branding.html" %}
+    
+    <!-- 우측: 결과 안내 (독립 영역) -->
+    <div class="lg:ml-[60%] w-full lg:w-[40%] h-full overflow-y-auto">
+        <div class="min-h-full flex items-center justify-center p-6">
+            <div class="w-full max-w-md py-8">
+                <!-- 모바일용 로고 -->
+                <div class="lg:hidden text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+                        </svg>
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-800">법인 DB 관리 시스템</h1>
+                </div>
+                
+                <!-- 결과 카드 -->
+                <div class="bg-white rounded-2xl shadow-xl p-8 text-center">
+                    {% if success %}
+                    <!-- 성공 -->
+                    <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-green-600 mb-2">{{ message }}</h2>
+                    {% else %}
+                    <!-- 실패 -->
+                    <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-bold text-red-600 mb-2">{{ message }}</h2>
+                    {% endif %}
+                    
+                    <p class="text-gray-600 mb-6">{{ detail }}</p>
+
+                    {% if success %}
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-left">
+                        <h3 class="font-semibold text-blue-800 mb-2">다음 단계</h3>
+                        <ul class="text-sm text-blue-700 space-y-2">
+                            <li class="flex items-center gap-2">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/>
+                                </svg>
+                                관리자가 가입 신청을 검토합니다
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/>
+                                </svg>
+                                승인 완료 시 이메일로 알려드립니다
+                            </li>
+                            <li class="flex items-center gap-2">
+                                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/>
+                                </svg>
+                                승인 후 로그인이 가능합니다
+                            </li>
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <a href="/auth/login" 
+                       class="block w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-primary-600/30">
+                        <span>로그인 페이지로 이동</span>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                    </a>
+                    
+                    {% if not success %}
+                    <p class="mt-4 text-sm text-gray-500">
+                        문제가 계속되면 
+                        <a href="/auth/register" class="text-primary-600 hover:text-primary-700 font-medium hover:underline">
+                            회원가입을 다시 진행
+                        </a>
+                        해주세요.
+                    </p>
+                    {% endif %}
+                </div>
+                
+                <!-- 하단 정보 -->
+                <div class="mt-8 text-center">
+                    <p class="text-sm text-gray-500">
+                        © 2026 법인 DB 관리 시스템
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

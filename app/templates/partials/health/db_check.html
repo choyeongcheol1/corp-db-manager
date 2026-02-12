@@ -1,0 +1,158 @@
+<!-- DB 상태 점검 결과 -->
+<div class="space-y-6">
+    <!-- 헤더 -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h3 class="text-lg font-semibold text-gray-800">DB 상태 점검</h3>
+            <p class="text-sm text-gray-500">{{ health.checked_at.strftime('%Y-%m-%d %H:%M:%S') }} 기준</p>
+        </div>
+    </div>
+
+    <!-- 상태 요약 필터 -->
+    <div class="flex gap-2">
+        <button 
+            hx-get="/partials/health/databases/{{ server.id }}"
+            hx-target="#db-check-content"
+            hx-swap="innerHTML"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition
+                {% if not status_filter or status_filter == 'all' %}
+                bg-blue-600 text-white
+                {% else %}
+                bg-gray-100 text-gray-600 hover:bg-gray-200
+                {% endif %}">
+            전체 {{ health.total }}
+        </button>
+        <button 
+            hx-get="/partials/health/databases/{{ server.id }}?status_filter=normal"
+            hx-target="#db-check-content"
+            hx-swap="innerHTML"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition
+                {% if status_filter == 'normal' %}
+                bg-green-600 text-white
+                {% else %}
+                bg-green-100 text-green-700 hover:bg-green-200
+                {% endif %}">
+            🟢 정상 {{ health.normal }}
+        </button>
+        <button 
+            hx-get="/partials/health/databases/{{ server.id }}?status_filter=warning"
+            hx-target="#db-check-content"
+            hx-swap="innerHTML"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition
+                {% if status_filter == 'warning' %}
+                bg-yellow-600 text-white
+                {% else %}
+                bg-yellow-100 text-yellow-700 hover:bg-yellow-200
+                {% endif %}">
+            🟡 경고 {{ health.warning }}
+        </button>
+        <button 
+            hx-get="/partials/health/databases/{{ server.id }}?status_filter=error"
+            hx-target="#db-check-content"
+            hx-swap="innerHTML"
+            class="px-4 py-2 rounded-lg text-sm font-medium transition
+                {% if status_filter == 'error' %}
+                bg-red-600 text-white
+                {% else %}
+                bg-red-100 text-red-700 hover:bg-red-200
+                {% endif %}">
+            🔴 오류 {{ health.error }}
+        </button>
+    </div>
+
+    <!-- DB 목록 테이블 -->
+    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-center text-sm font-medium text-gray-600 w-16">상태</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">DB명</th>
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">용량</th>
+                    {% for check in health.databases[0].checks if health.databases %}
+                    <th class="px-4 py-3 text-center text-sm font-medium text-gray-600">{{ check.name }}</th>
+                    {% endfor %}
+                    <th class="px-4 py-3 text-left text-sm font-medium text-gray-600">문제</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                {% for db in health.databases %}
+                <tr class="hover:bg-gray-50 cursor-pointer"
+                    hx-get="/partials/health/database/{{ server.id }}/{{ db.db_name }}"
+                    hx-target="#db-detail-modal"
+                    hx-swap="innerHTML"
+                    onclick="document.getElementById('db-detail-modal').classList.remove('hidden')">
+                    <td class="px-4 py-3 text-center">
+                        {% if db.status == 'normal' %}
+                        <span class="text-lg">🟢</span>
+                        {% elif db.status == 'warning' %}
+                        <span class="text-lg">🟡</span>
+                        {% else %}
+                        <span class="text-lg">🔴</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="font-medium text-gray-800">{{ db.db_name }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-sm text-gray-600">
+                        {{ "%.1f"|format(db.size_mb / 1024) }} GB
+                    </td>
+                    {% for check in db.checks %}
+                    <td class="px-4 py-3 text-center">
+                        {% if check.status == 'normal' %}
+                        <span class="text-green-600 text-sm">{{ check.value }}</span>
+                        {% elif check.status == 'warning' %}
+                        <span class="text-yellow-600 text-sm font-medium">{{ check.value }}</span>
+                        {% else %}
+                        <span class="text-red-600 text-sm font-medium">{{ check.value }}</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                    <td class="px-4 py-3">
+                        {% if db.issues %}
+                        <span class="text-sm text-red-600">{{ db.issues | join(', ') | truncate(30) }}</span>
+                        {% else %}
+                        <span class="text-sm text-gray-400">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="10" class="px-4 py-8 text-center text-gray-500">
+                        해당 상태의 DB가 없습니다
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 발견된 문제 요약 -->
+    {% if health.issues %}
+    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+        <h4 class="text-sm font-semibold text-red-800 mb-2">
+            ⚠️ 발견된 문제 ({{ health.issues | length }}건)
+        </h4>
+        <ul class="space-y-1 max-h-40 overflow-y-auto">
+            {% for issue in health.issues[:10] %}
+            <li class="text-sm text-red-700 flex items-start gap-2">
+                <span class="text-red-400">•</span>
+                {{ issue }}
+            </li>
+            {% endfor %}
+            {% if health.issues | length > 10 %}
+            <li class="text-sm text-red-500 italic">... 외 {{ health.issues | length - 10 }}건</li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+
+<!-- DB 상세 모달 -->
+<div id="db-detail-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+     onclick="if(event.target === this) this.classList.add('hidden')">
+    <div class="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+        <div class="p-6">
+            <!-- 모달 내용이 HTMX로 로드됨 -->
+        </div>
+    </div>
+</div>

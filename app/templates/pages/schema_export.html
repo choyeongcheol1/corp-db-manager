@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import svg_icon %}
+
+{% block title %}테이블 정의서 - DB 관리 시스템{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- 헤더 -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+                {{ svg_icon('document-arrow-down', 'w-6 h-6') }}
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">테이블 정의서</h1>
+                <p class="text-gray-600 mt-1">서버의 테이블 구조를 엑셀 파일로 다운로드합니다</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 서버 선택 -->
+    <div class="bg-white rounded-xl shadow-sm border p-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2">서버 선택</label>
+        <select id="serverSelect" 
+                class="w-full md:w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:ring-0 focus:border-primary-500"
+                onchange="onServerChange()">
+            <option value="">서버를 선택하세요</option>
+            {% for s in servers %}
+            <option value="{{ s.id }}" {% if selected_server_id == s.id %}selected{% endif %}>
+                {{ s.server_name }} ({{ s.host }}:{{ s.port }})
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div id="exportOptions" class="space-y-6 {% if not selected_server_id %}hidden{% endif %}">
+        <!-- 전체 DB 정의서 -->
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                    {{ svg_icon('circle-stack', 'w-5 h-5') }}
+                    전체 DB 정의서
+                </h2>
+                <p class="text-blue-100 text-sm mt-1">서버의 모든 DB 테이블 정의서를 한 파일로 생성합니다</p>
+            </div>
+            <div class="p-6">
+                <div class="flex items-center justify-between">
+                    <div class="text-gray-600">
+                        <p id="serverDbCount" class="text-sm">DB 수: <span class="font-medium text-gray-900">-</span></p>
+                        <p class="text-xs text-gray-500 mt-1">모든 DB의 테이블 정의서가 시트별로 생성됩니다</p>
+                    </div>
+                    <button onclick="exportAllDatabases()" 
+                            class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2 font-medium">
+                        {{ svg_icon('arrow-down-tray', 'w-5 h-5') }}
+                        전체 다운로드
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- DB 선택 정의서 -->
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4">
+                <h2 class="text-lg font-semibold text-white flex items-center gap-2">
+                    {{ svg_icon('clipboard-document-list', 'w-5 h-5') }}
+                    DB 선택 다운로드
+                </h2>
+                <p class="text-green-100 text-sm mt-1">특정 DB의 테이블 정의서를 생성합니다</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <!-- DB 선택 -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">DB 선택</label>
+                    <select id="dbSelect" 
+                            class="w-full md:w-1/2 px-4 py-3 border border-gray-300 rounded-lg focus:ring-0 focus:border-primary-500"
+                            onchange="onDbChange()">
+                        <option value="">DB를 선택하세요</option>
+                    </select>
+                </div>
+                
+                <!-- 테이블 선택 옵션 -->
+                <div id="tableOptions" class="hidden">
+                    <div class="flex items-center gap-6 mb-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="tableSelection" value="all" checked 
+                                   class="w-4 h-4 text-green-600" onchange="toggleTableList()">
+                            <span class="text-gray-700">전체 테이블</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="tableSelection" value="select" 
+                                   class="w-4 h-4 text-green-600" onchange="toggleTableList()">
+                            <span class="text-gray-700">테이블 선택</span>
+                        </label>
+                    </div>
+                    
+                    <!-- 테이블 목록 -->
+                    <div id="tableList" class="hidden border rounded-lg p-4 max-h-64 overflow-y-auto bg-gray-50">
+                        <div class="flex items-center justify-between mb-3 pb-3 border-b">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="selectAllTables" 
+                                       class="w-4 h-4 text-green-600 rounded" onchange="toggleAllTables()">
+                                <span class="text-sm font-medium text-gray-700">전체 선택</span>
+                            </label>
+                            <span id="selectedCount" class="text-xs text-gray-500">0개 선택</span>
+                        </div>
+                        <div id="tableCheckboxes" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                            <!-- 테이블 체크박스가 동적으로 추가됨 -->
+                        </div>
+                    </div>
+                    
+                    <!-- 다운로드 버튼 -->
+                    <div class="flex justify-end mt-4">
+                        <button onclick="exportSelectedDb()" 
+                                class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-2 font-medium">
+                            {{ svg_icon('arrow-down-tray', 'w-5 h-5') }}
+                            선택 DB 다운로드
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 로딩 오버레이 -->
+    <div id="loadingOverlay" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-8 text-center">
+            <div class="animate-spin w-12 h-12 border-4 border-primary-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p class="text-gray-700 font-medium">테이블 정의서 생성 중...</p>
+            <p class="text-gray-500 text-sm mt-1">잠시만 기다려주세요</p>
+        </div>
+    </div>
+</div>
+
+<script>
+let databases = [];
+let tables = [];
+
+function onServerChange() {
+    const serverId = document.getElementById('serverSelect').value;
+    const exportOptions = document.getElementById('exportOptions');
+    
+    if (!serverId) {
+        exportOptions.classList.add('hidden');
+        return;
+    }
+    
+    // URL 업데이트
+    window.history.pushState({}, '', `/schema-export?server_id=${serverId}`);
+    
+    // DB 목록 로드
+    fetch(`/partials/servers/${serverId}/databases`)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('dbSelect').innerHTML = '<option value="">DB를 선택하세요</option>' + html;
+            
+            // DB 수 파싱
+            const parser = new DOMParser();
+            const doc = parser.parseFromString('<select>' + html + '</select>', 'text/html');
+            const options = doc.querySelectorAll('option');
+            document.getElementById('serverDbCount').innerHTML = 
+                `DB 수: <span class="font-medium text-gray-900">${options.length}개</span>`;
+            
+            exportOptions.classList.remove('hidden');
+            document.getElementById('tableOptions').classList.add('hidden');
+        });
+}
+
+function onDbChange() {
+    const serverId = document.getElementById('serverSelect').value;
+    const dbName = document.getElementById('dbSelect').value;
+    const tableOptions = document.getElementById('tableOptions');
+    
+    if (!dbName) {
+        tableOptions.classList.add('hidden');
+        return;
+    }
+    
+    // 테이블 목록 로드
+    fetch(`/api/schema-export/tables/${serverId}/${dbName}`)
+        .then(response => response.json())
+        .then(data => {
+            tables = data.tables || [];
+            renderTableCheckboxes();
+            tableOptions.classList.remove('hidden');
+            
+            // 전체 테이블 선택으로 초기화
+            document.querySelector('input[name="tableSelection"][value="all"]').checked = true;
+            document.getElementById('tableList').classList.add('hidden');
+        });
+}
+
+function renderTableCheckboxes() {
+    const container = document.getElementById('tableCheckboxes');
+    container.innerHTML = tables.map(table => `
+        <label class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-gray-100">
+            <input type="checkbox" value="${table.table_name}" 
+                   class="table-checkbox w-4 h-4 text-green-600 rounded" onchange="updateSelectedCount()">
+            <span class="text-sm text-gray-700 truncate">${table.table_name}</span>
+        </label>
+    `).join('');
+    updateSelectedCount();
+}
+
+function toggleTableList() {
+    const selection = document.querySelector('input[name="tableSelection"]:checked').value;
+    const tableList = document.getElementById('tableList');
+    
+    if (selection === 'select') {
+        tableList.classList.remove('hidden');
+    } else {
+        tableList.classList.add('hidden');
+    }
+}
+
+function toggleAllTables() {
+    const checked = document.getElementById('selectAllTables').checked;
+    document.querySelectorAll('.table-checkbox').forEach(cb => cb.checked = checked);
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const checked = document.querySelectorAll('.table-checkbox:checked').length;
+    document.getElementById('selectedCount').textContent = `${checked}개 선택`;
+}
+
+function showLoading() {
+    document.getElementById('loadingOverlay').classList.remove('hidden');
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').classList.add('hidden');
+}
+
+function checkDownloadComplete(callback) {
+    const interval = setInterval(() => {
+        if (document.cookie.includes('download_complete=true')) {
+            clearInterval(interval);
+            // 쿠키 삭제
+            document.cookie = 'download_complete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+            callback();
+        }
+    }, 500);
+    
+    // 5분 타임아웃
+    setTimeout(() => {
+        clearInterval(interval);
+        callback();
+    }, 1800000);
+}
+
+function exportAllDatabases() {
+    const serverId = document.getElementById('serverSelect').value;
+    if (!serverId) {
+        alert('서버를 선택하세요');
+        return;
+    }
+    
+    showLoading();
+    
+    // 쿠키 삭제 (이전 것)
+    document.cookie = 'download_complete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    
+    // 다운로드 시작
+    window.location.href = `/api/schema-export/download/server/${serverId}`;
+    
+    // 완료 감지
+    checkDownloadComplete(() => {
+        hideLoading();
+    });
+}
+
+function exportSelectedDb() {
+    const serverId = document.getElementById('serverSelect').value;
+    const dbName = document.getElementById('dbSelect').value;
+    
+    if (!serverId || !dbName) {
+        alert('서버와 DB를 선택하세요');
+        return;
+    }
+    
+    const selection = document.querySelector('input[name="tableSelection"]:checked').value;
+    let url = `/api/schema-export/download/db/${serverId}/${dbName}`;
+    
+    if (selection === 'select') {
+        const selectedTables = Array.from(document.querySelectorAll('.table-checkbox:checked'))
+            .map(cb => cb.value);
+        
+        if (selectedTables.length === 0) {
+            alert('테이블을 선택하세요');
+            return;
+        }
+        
+        url += `?tables=${selectedTables.join(',')}`;
+    }
+    
+    showLoading();
+    
+    // 쿠키 삭제
+    document.cookie = 'download_complete=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    
+    window.location.href = url;
+    
+    checkDownloadComplete(() => {
+        hideLoading();
+    });
+}
+
+// 페이지 로드 시 서버 선택되어 있으면 DB 목록 로드
+document.addEventListener('DOMContentLoaded', function() {
+    const serverId = document.getElementById('serverSelect').value;
+    if (serverId) {
+        onServerChange();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>회원가입 완료 - 법인 DB 관리 시스템</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-screen bg-gray-50">
+    <!-- 좌측: 브랜딩 영역 (fixed) -->
+    {% include "components/auth_branding.html" %}
+    
+    <!-- 모달 컴포넌트 import -->
+    {% from "components/modals.html" import alert_modal %}
+    
+    <!-- 우측: 완료 안내 (독립 영역) -->
+    <div class="lg:ml-[60%] w-full lg:w-[40%] h-full overflow-y-auto" 
+         x-data="{
+             showAlertModal: false,
+             alertData: { title: '', message: '', type: 'info' },
+             
+             showAlert(title, message, type = 'info') {
+                 this.alertData = { title, message, type };
+                 this.showAlertModal = true;
+             },
+             
+             async resendEmail() {
+                 try {
+                     const response = await fetch('/auth/resend-verification', {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ email: '{{ email }}' })
+                     });
+                     
+                     const data = await response.json();
+                     
+                     if (response.ok) {
+                         this.showAlert('발송 완료', '인증 메일이 재발송되었습니다.', 'success');
+                     } else {
+                         this.showAlert('발송 실패', data.detail || '메일 발송에 실패했습니다.', 'error');
+                     }
+                 } catch (error) {
+                     this.showAlert('오류', '오류가 발생했습니다. 잠시 후 다시 시도해주세요.', 'error');
+                 }
+             }
+         }">
+        <div class="min-h-full flex items-center justify-center p-6">
+            <div class="w-full max-w-md py-8">
+                <!-- 모바일용 로고 -->
+                <div class="lg:hidden text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
+                        <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+                        </svg>
+                    </div>
+                    <h1 class="text-2xl font-bold text-gray-800">법인 DB 관리 시스템</h1>
+                </div>
+                
+                <!-- 완료 카드 -->
+                <div class="bg-white rounded-2xl shadow-xl p-8 text-center">
+                    <!-- 성공 아이콘 -->
+                    <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg class="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+
+                    <h2 class="text-2xl font-bold text-gray-800 mb-2">이메일을 확인해주세요!</h2>
+                    
+                    <p class="text-gray-600 mb-4">
+                        <strong>{{ name }}</strong>님, 회원가입이 완료되었습니다.
+                    </p>
+                    
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+                        <p class="text-blue-800 text-sm">
+                            <strong>{{ email }}</strong>으로<br>
+                            인증 메일을 발송했습니다.
+                        </p>
+                    </div>
+
+                    <div class="text-left bg-gray-50 rounded-xl p-4 mb-6">
+                        <h3 class="font-semibold text-gray-800 mb-3">다음 단계</h3>
+                        <ol class="space-y-3 text-sm text-gray-600">
+                            <li class="flex items-start gap-3">
+                                <span class="w-6 h-6 bg-primary-600 text-white rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">1</span>
+                                <span>이메일에서 <strong>인증 링크</strong>를 클릭하세요</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <span class="w-6 h-6 bg-gray-300 text-white rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">2</span>
+                                <span>관리자 승인을 기다려주세요</span>
+                            </li>
+                            <li class="flex items-start gap-3">
+                                <span class="w-6 h-6 bg-gray-300 text-white rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold">3</span>
+                                <span>승인 완료 후 로그인하세요</span>
+                            </li>
+                        </ol>
+                    </div>
+
+                    <div class="text-sm text-gray-500 mb-6">
+                        <p>메일이 도착하지 않았나요?</p>
+                        <p class="mt-1">스팸 폴더를 확인하거나 
+                            <button @click="resendEmail()" class="text-primary-600 hover:text-primary-700 font-medium hover:underline">
+                                인증 메일 재발송
+                            </button>
+                        </p>
+                    </div>
+
+                    <a href="/auth/login" 
+                       class="block w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-xl transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-primary-600/30">
+                        <span>로그인 페이지로 이동</span>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                    </a>
+                </div>
+                
+                <!-- 하단 정보 -->
+                <div class="mt-8 text-center">
+                    <p class="text-sm text-gray-500">
+                        © 2026 법인 DB 관리 시스템
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 알림 모달 -->
+        {{ alert_modal() }}
+    </div>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>[x-cloak] { display: none !important; }</style>
+</body>
+</html>

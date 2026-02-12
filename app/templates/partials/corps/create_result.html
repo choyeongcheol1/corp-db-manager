@@ -1,0 +1,87 @@
+<!-- 법인 DB 생성 결과 -->
+{% if success %}
+<div class="bg-green-50 border border-green-200 rounded-xl p-6">
+    <div class="text-center mb-4">
+        <span class="text-5xl">🎉</span>
+        <h3 class="text-xl font-bold text-green-800 mt-2">법인 DB 생성 완료!</h3>
+    </div>
+    
+    <div class="bg-white rounded-lg p-4 space-y-3 mb-4">
+        <div class="flex justify-between border-b pb-2">
+            <span class="text-gray-600">서버</span>
+            <span class="font-medium">{{ result.server_name }}</span>
+        </div>
+        <div class="flex justify-between border-b pb-2">
+            <span class="text-gray-600">DB명</span>
+            <span class="font-mono font-medium">{{ result.db_name }}</span>
+        </div>
+        <div class="flex justify-between border-b pb-2">
+            <span class="text-gray-600">접속계정</span>
+            <span class="font-mono">{{ result.db_user }}</span>
+        </div>
+        <div class="flex justify-between border-b pb-2">
+            <span class="text-gray-600">비밀번호</span>
+            <span class="font-mono text-primary-600">{{ result.db_password }}</span>
+        </div>
+        <div class="flex justify-between border-b pb-2">
+            <span class="text-gray-600">관리자</span>
+            <span class="font-mono">admin / Admin@1234</span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-gray-600">소요시간</span>
+            <span>{{ result.elapsed_seconds }}초</span>
+        </div>
+    </div>
+    
+    <div class="mb-4">
+        <label class="text-sm text-gray-600 mb-1 block">연결 문자열</label>
+        <div class="bg-gray-100 rounded-lg p-3 font-mono text-xs break-all">
+            {{ result.connection_string }}
+        </div>
+    </div>
+    
+    <!-- 데이터 복사 안내 -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+        <div class="flex items-start gap-3">
+            <span class="text-2xl">💡</span>
+            <div>
+                <p class="font-medium text-blue-800">기초 데이터를 복사하시겠습니까?</p>
+                <p class="text-sm text-blue-600 mt-1">소스 DB의 계정과목, 코드 등 기초 데이터를 새 DB로 복사할 수 있습니다.</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="flex gap-3">
+        <a href="/corps" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-center">
+            목록으로
+        </a>
+        <a href="/copy-data?source_server={{ result.source_server_id }}&source_db={{ result.source_db }}&target_server={{ result.target_server_id }}&target_db={{ result.db_name }}" 
+           class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-center flex items-center justify-center gap-2">
+            📦 데이터 복사하기
+        </a>
+        <button onclick="location.reload()" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">
+            추가 생성
+        </button>
+    </div>
+</div>
+{% else %}
+<div class="bg-red-50 border border-red-200 rounded-xl p-6">
+    <div class="text-center mb-4">
+        <span class="text-5xl">❌</span>
+        <h3 class="text-xl font-bold text-red-800 mt-2">생성 실패</h3>
+    </div>
+    
+    <div class="bg-white rounded-lg p-4 text-red-700 mb-4">
+        {{ message or error or '알 수 없는 오류가 발생했습니다' }}
+    </div>
+    
+    <div class="flex gap-3">
+        <a href="/corps" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-center">
+            목록으로
+        </a>
+        <button onclick="history.back()" class="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">
+            다시 시도
+        </button>
+    </div>
+</div>
+{% endif %}

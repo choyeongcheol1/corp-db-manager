@@ -1,0 +1,101 @@
+<!-- partials/sync/progress.html -->
+<!-- HTMX 파셜: 동기화 진행 상태 (폴링 갱신) -->
+<div id="sync-progress"
+     {% if job.status == 'RUNNING' %}
+     hx-get="/partials/sync/progress/{{ job.job_id }}"
+     hx-trigger="every 2s"
+     hx-swap="outerHTML"
+     {% endif %}>
+
+    <!-- 진행률 바 -->
+    <div class="mb-4">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-700">
+                {% if job.status == 'RUNNING' %}
+                    진행 중: {{ job.current_table }}
+                {% elif job.status == 'COMPLETED' %}
+                    ✅ 동기화 완료
+                {% elif job.status == 'FAILED' %}
+                    ⚠️ 동기화 완료 (일부 실패)
+                {% elif job.status == 'CANCELLED' %}
+                    취소됨
+                {% endif %}
+            </span>
+            <span class="text-sm font-bold tabular-nums
+                  {% if job.status == 'COMPLETED' %}text-emerald-600
+                  {% elif job.status == 'FAILED' %}text-red-600
+                  {% else %}text-sky-600{% endif %}">
+                {{ job.progress_percent }}%
+            </span>
+        </div>
+        <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-700 ease-out
+                        {% if job.status == 'COMPLETED' %}bg-emerald-500
+                        {% elif job.status == 'FAILED' %}bg-red-500
+                        {% else %}bg-sky-500{% endif %}"
+                 style="width: {{ job.progress_percent }}%"></div>
+        </div>
+    </div>
+
+    <!-- 통계 -->
+    <div class="grid grid-cols-4 gap-3 mb-4">
+        <div class="text-center p-3 bg-gray-50 rounded-xl">
+            <p class="text-xs text-gray-500">전체</p>
+            <p class="text-lg font-bold text-gray-900">{{ job.total_tables }}</p>
+        </div>
+        <div class="text-center p-3 bg-gray-50 rounded-xl">
+            <p class="text-xs text-gray-500">완료</p>
+            <p class="text-lg font-bold text-gray-900">{{ job.completed_tables }}</p>
+        </div>
+        <div class="text-center p-3 bg-emerald-50 rounded-xl">
+            <p class="text-xs text-emerald-600">성공</p>
+            <p class="text-lg font-bold text-emerald-600">{{ job.success_count }}</p>
+        </div>
+        <div class="text-center p-3 bg-red-50 rounded-xl">
+            <p class="text-xs text-red-600">실패</p>
+            <p class="text-lg font-bold text-red-600">{{ job.fail_count }}</p>
+        </div>
+    </div>
+
+    <!-- 결과 목록 -->
+    {% if job.results %}
+    <div class="border border-gray-200 rounded-xl overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+                <tr class="text-xs text-gray-500 uppercase">
+                    <th class="px-4 py-2 text-left">테이블</th>
+                    <th class="px-4 py-2 text-right">원본</th>
+                    <th class="px-4 py-2 text-right">대상</th>
+                    <th class="px-4 py-2 text-right">소요(초)</th>
+                    <th class="px-4 py-2 text-center">상태</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for r in job.results %}
+                <tr class="hover:bg-gray-50/50">
+                    <td class="px-4 py-2 font-mono text-xs">{{ r.schema_name }}.{{ r.table_name }}</td>
+                    <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ "{:,}".format(r.source_count) }}</td>
+                    <td class="px-4 py-2 text-right tabular-nums text-gray-600">{{ "{:,}".format(r.target_count) }}</td>
+                    <td class="px-4 py-2 text-right tabular-nums text-gray-500">{{ "%.1f"|format(r.elapsed_seconds) }}</td>
+                    <td class="px-4 py-2 text-center">
+                        <span class="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold
+                              {% if r.status == 'SUCCESS' %}bg-emerald-50 text-emerald-700
+                              {% elif r.status == 'FAIL' %}bg-red-50 text-red-700
+                              {% elif r.status == 'MISMATCH' %}bg-amber-50 text-amber-700
+                              {% elif r.status == 'RUNNING' %}bg-sky-50 text-sky-700
+                              {% else %}bg-gray-50 text-gray-500{% endif %}">
+                            {{ r.status }}
+                        </span>
+                        {% if r.error_msg %}
+                        <p class="text-[10px] text-red-500 mt-0.5 truncate max-w-[200px]" title="{{ r.error_msg }}">
+                            {{ r.error_msg }}
+                        </p>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>

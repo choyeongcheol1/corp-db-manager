@@ -1,0 +1,10 @@
+<!-- 서버의 DB 목록 (select options) -->
+<option value="">DB를 선택하세요</option>
+{% for db in databases %}
+<option value="{{ db.db_name }}">
+    {{ db.db_name }} ({{ "%.1f"|format(db.size_mb) }} MB)
+</option>
+{% endfor %}
+{% if not databases %}
+<option value="" disabled>DB가 없습니다</option>
+{% endif %}

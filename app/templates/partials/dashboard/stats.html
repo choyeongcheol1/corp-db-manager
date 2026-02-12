@@ -1,0 +1,68 @@
+<!-- 대시보드 통계 카드 -->
+{% from "components/icons.html" import svg_icon %}
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <!-- 전체 DB -->
+    <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">전체 DB</p>
+                <p class="text-3xl font-bold text-gray-800 mt-1">{{ stats.total }}</p>
+            </div>
+            <div class="w-12 h-12 bg-primary-100 rounded-lg flex items-center justify-center text-primary-600">
+                {{ svg_icon('circle-stack', 'w-7 h-7') }}
+            </div>
+        </div>
+    </div>
+    
+    <!-- 정상 -->
+    <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">정상</p>
+                <p class="text-3xl font-bold text-green-600 mt-1">{{ stats.normal }}</p>
+            </div>
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center text-green-600">
+                {{ svg_icon('check-circle', 'w-7 h-7') }}
+            </div>
+        </div>
+    </div>
+    
+    <!-- 경고 -->
+    <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">경고</p>
+                <p class="text-3xl font-bold text-yellow-600 mt-1">{{ stats.warning }}</p>
+            </div>
+            <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600">
+                {{ svg_icon('exclamation-triangle', 'w-7 h-7') }}
+            </div>
+        </div>
+        {% if stats.warning > 0 %}
+        <a href="/corps{% if server_id %}/server/{{ server_id }}{% endif %}?status=warning" 
+           class="text-sm text-yellow-600 hover:underline mt-2 block">
+            자세히 보기 →
+        </a>
+        {% endif %}
+    </div>
+    
+    <!-- 오류 -->
+    <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-sm text-gray-500">오류</p>
+                <p class="text-3xl font-bold text-red-600 mt-1">{{ stats.error }}</p>
+            </div>
+            <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center text-red-600">
+                {{ svg_icon('x-circle', 'w-7 h-7') }}
+            </div>
+        </div>
+        {% if stats.error > 0 %}
+        <a href="/corps{% if server_id %}/server/{{ server_id }}{% endif %}?status=error" 
+           class="text-sm text-red-600 hover:underline mt-2 block">
+            자세히 보기 →
+        </a>
+        {% endif %}
+    </div>
+</div>
